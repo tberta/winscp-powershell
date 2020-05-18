@@ -31,7 +31,13 @@ switch ($protocol)
     "s3"     {  $winscpProtocol = [WinSCP.Protocol]::s3     }
     "scp"    {  $winscpProtocol = [WinSCP.Protocol]::scp    }
     "webdav" {  $winscpProtocol = [WinSCP.Protocol]::webdav }
-    default  {  $winscpProtocol = [WinSCP.Protocol]::sftp   }
+    default  
+	{     
+		Write-Host "Unknown protocol specified"
+        Write-Host "Exiting..."
+        Exit 2
+	}
+
 }
 
 if(($protocol -eq "sftp") -or ($protocol -eq "scp"))
