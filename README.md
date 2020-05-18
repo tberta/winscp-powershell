@@ -13,16 +13,18 @@ The intent was to keep this version as generic as possible so it could be used f
 This script contains several parameters:<br>
 * <b>winscpPath</b> - Path to the WINSCP .Net dll <br>
 * <b>localPath</b> - path to the location in your local environment (when running in OpCon you need an extra ending slash) <br>
-* <b>remotePath</b> - remote folder on the ftp site you connect to <br>
-* <b>hostname</b> - ftp site you are connecting to <br>
-* <b>user</b> - username used for authenticating to the ftp site <br>
-* <b>password</b> - password used for authentication to the ftp site (recommend OpCon encrypted global property) <br>
-* <b>filename</b> - name of the file you are trying to upload/download (supports wildcards) <br>
-* <b>option</b> - upload or download <br>
+* <b>remotePath</b> - remote folder on the remote host you connect to <br>
+* <b>hostname</b> - remote host you are connecting to <br>
+* <b>protocol</b> - protocol to use with remote host<br>
+* <b>port</b> - remote port to connect to<br>
+* <b>user</b> - username used for authenticating to the remote site <br>
+* <b>password</b> - password used for authentication to the remote site (recommend OpCon encrypted global property) <br>
+* <b>filemask</b> - name of the file you are trying to upload/download (supports wildcards) <br>
+* <b>direction</b> - upload or download<br>
   
 Execution example: <br>
 ```
-powershell.exe -ExecutionPolicy Bypass -File myFTP.ps1 -winscpPath "C:\Program Files (x86)\WinSCP\WinSCPnet.dll" -localPath "C:\\" -remotePath "/somedirectory" -filename "files*.txt" -hostname "someftp.com" -user "xman" -password "encrypted" -option "download"
+powershell.exe -ExecutionPolicy Bypass -File winscp.ps1 -winscpPath "C:\Program Files (x86)\WinSCP\WinSCPnet.dll" -localPath "C:\\" -remotePath "/somedirectory" -filemask "files*.txt" -hostname "someftp.com" -port 822 -user "xman" -password "encrypted" -direction "download" -protocol "sftp" -serverFingerprint "ssh-rsa 2048 xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx"
 ```
 # Disclaimer
 No Support and No Warranty are provided by SMA Technologies for this project and related material. The use of this project's files is on your own risk.
