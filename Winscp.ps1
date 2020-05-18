@@ -62,7 +62,7 @@ $sessionOptions = New-Object WinSCP.SessionOptions -Property @{
 }
  
 $session = New-Object WinSCP.Session
- 
+
 if($direction -eq "upload")
 {
     try
