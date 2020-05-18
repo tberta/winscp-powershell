@@ -1,12 +1,16 @@
-﻿param (
+param (
     [string] $winscpPath = "C:\Program Files (x86)\WinSCP\WinSCPnet.dll",
     [string] $localPath,
     [string] $remotePath,
     [string] $hostname,
     [string] $user,
+    [int]    $port = 22,
     [string] $password,
-    [string] $fileName,
-    [string] $option
+    [string] $filemask = $null, # $null
+    [string] $direction,
+    [string] $protocol = "sftp",
+    [string] $serverFingerprint,
+    [switch] $deleteSourceFile = $false
 )
          
 try
@@ -20,18 +24,40 @@ catch [Exception]
     Exit 1
 }
 
+switch ($protocol)
+{
+    "sftp"   {  $winscpProtocol = [WinSCP.Protocol]::sftp   }
+    "ftp"    {  $winscpProtocol = [WinSCP.Protocol]::ftp    }
+    "s3"     {  $winscpProtocol = [WinSCP.Protocol]::s3     }
+    "scp"    {  $winscpProtocol = [WinSCP.Protocol]::scp    }
+    "webdav" {  $winscpProtocol = [WinSCP.Protocol]::webdav }
+    default  {  $winscpProtocol = [WinSCP.Protocol]::sftp   }
+}
+
+if(($protocol -eq "sftp") -or ($protocol -eq "scp"))
+{
+    if (-not $serverFingerprint)
+    {
+        
+        "Protocol $protocol specified but serverFingerprint is missing. Must be defined "
+        'Argument Example : -serverFingerprint "ssh-rsa 2048 e0:a3:0f:1a:04:df:5a:cf:c9:81:84:4e:08:4c:9a:06"'
+        Exit 3
+    }
+}
+
 # Setup session options
 $sessionOptions = New-Object WinSCP.SessionOptions -Property @{
-    Protocol = [WinSCP.Protocol]::ftp
+    Protocol = $winscpProtocol
     HostName = $hostname
     UserName = $user
     Password = $password
-    #SshHostKeyFingerprint = "ssh-rsa 2048 xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx"
+    PortNumber = $port
+    SshHostKeyFingerprint = "ssh-rsa 2048 e0:a3:0f:1a:04:df:5a:cf:c9:81:84:4e:08:4c:9a:06"
 }
  
 $session = New-Object WinSCP.Session
  
-if($option -eq "upload")
+if($direction -eq "upload")
 {
     try
     {
@@ -39,13 +65,13 @@ if($option -eq "upload")
         $session.Open($sessionOptions)
 
         # Upload files
-        $transferOptions = New-Object WinSCP.TransferOptions
+        #$transferOptions = New-Object WinSCP.TransferOptions
         #$transferOptions.TransferMode = [WinSCP.TransferMode]::Binary
-        $transferResult = $session.PutFiles($localPath,($remotePath + $filename), $False, $transferOptions)
-    
+        #$transferResult = $session.PutFiles($localPath,($remotePath + $filemask), $deleteSourceFile , $transferOptions)
+        $transferResult = $session.PutFilestoDirectory($localPath,$remotePath, $filemask, $deleteSourceFile)
+
         # Throw on any error
         $transferResult.Check()
-        Write-Host $session.Output
     
         # Print results
         foreach ($transfer in $transferResult.Transfers)
@@ -55,6 +81,7 @@ if($option -eq "upload")
     }
     catch [Exception]
     {
+        Write-Host $session.Output
         Write-Host $_.Exception.Message
         Exit 7
     }
@@ -64,22 +91,30 @@ if($option -eq "upload")
         $session.Dispose()
     }
 }
-elseif($option -eq "download")
+elseif($direction -eq "download")
 {
     try
     {
         # Connect
         $session.Open($sessionOptions)
- 
+
+        # Download Files from remote
+        
         # Download the file and throw on any error
-        $sessionResult = $session.GetFiles(($remotePath + $fileName),($localPath + $fileName))
+        #$sessionResult = $session.GetFiles(($remotePath + $fileName),($localPath + $filemask))
+        $sessionResult = $session.GetFilesToDirectory($remotePath, $localPath, $filemask, $deleteSourceFile)
         
         # Throw error if found
         $sessionResult.Check()
-        Write-Host $session.Output
+
+        foreach ($transfer in $transferResult.Transfers)
+        {
+            Write-Host "Upload of $($transfer.FileName) succeeded"
+        }
     }
     catch [Exception]
     {
+        Write-Host $session.Output
         Write-Host $_.Exception.Message
         Exit 7
     }
@@ -91,6 +126,6 @@ elseif($option -eq "download")
 }
 else 
 {
-    Write-Host "Option not specified, must be 'upload' or 'download'"
+    Write-Host "Direction not specified, must be 'upload' or 'download'"
     Exit 8
 }
