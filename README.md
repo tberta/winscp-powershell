@@ -21,7 +21,7 @@ This script contains several parameters:<br>
 * <b>password</b> - password used for authentication to the remote site (recommend OpCon encrypted global property) <br>
 * <b>filemask</b> - name of the file you are trying to upload/download (supports wildcards) <br>
 * <b>direction</b> - upload or download<br>
-* <b>serverFingerprint</b> - ssh-rsa 2048 xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx<br>
+* <b>serverFingerprint</b> - When using SCP or SFTP, specify remote server host key fingerprint in following format with hex value "ssh-rsa 2048 xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx"<br>
 * <b>deleteSourceFile</b> - to delete source files after successful transmission<br>
 <br>
 Execution example:<br>
