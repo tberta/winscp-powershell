@@ -21,10 +21,11 @@ This script contains several parameters:<br>
 * <b>password</b> - password used for authentication to the remote site (recommend OpCon encrypted global property) <br>
 * <b>filemask</b> - name of the file you are trying to upload/download (supports wildcards) <br>
 * <b>direction</b> - upload or download<br>
-  
+* <b>serverFingerprint</b> - ssh-rsa 2048 xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx<br>
+* <b>deleteSourceFile</b> - to delete source files after successful transmission<br>
 Execution example: <br>
 ```
-powershell.exe -ExecutionPolicy Bypass -File winscp.ps1 -winscpPath "C:\Program Files (x86)\WinSCP\WinSCPnet.dll" -localPath "C:\\" -remotePath "/somedirectory" -filemask "files*.txt" -hostname "someftp.com" -port 822 -user "xman" -password "encrypted" -direction "download" -protocol "sftp" -serverFingerprint "ssh-rsa 2048 xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx"
+powershell.exe -ExecutionPolicy Bypass -File winscp.ps1 -winscpPath "C:\Program Files (x86)\WinSCP\WinSCPnet.dll" -localPath "C:\\" -remotePath "/somedirectory" -filemask "files*.txt" -hostname "someftp.com" -port 822 -user "xman" -password "encrypted" -direction "download" -protocol "sftp" -serverFingerprint "ssh-rsa 2048 xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx" -deleteSourceFile
 ```
 # Disclaimer
 No Support and No Warranty are provided by SMA Technologies for this project and related material. The use of this project's files is on your own risk.
