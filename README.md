@@ -24,7 +24,8 @@ This script contains several parameters:<br>
 * <b>serverFingerprint</b> - ssh-rsa 2048 xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx<br>
 * <b>deleteSourceFile</b> - to delete source files after successful transmission<br>
 <br>
-Execution example: <br>
+Execution example:<br>
+
 ```
 powershell.exe -ExecutionPolicy Bypass -File winscp.ps1 -winscpPath "C:\Program Files (x86)\WinSCP\WinSCPnet.dll" -localPath "C:\\" -remotePath "/somedirectory" -filemask "files*.txt" -hostname "someftp.com" -port 822 -user "xman" -password "encrypted" -direction "download" -protocol "sftp" -serverFingerprint "ssh-rsa 2048 xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx" -deleteSourceFile
 ```
