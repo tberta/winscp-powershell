@@ -58,7 +58,7 @@ $sessionOptions = New-Object WinSCP.SessionOptions -Property @{
     UserName = $user
     Password = $password
     PortNumber = $port
-    SshHostKeyFingerprint = "ssh-rsa 2048 e0:a3:0f:1a:04:df:5a:cf:c9:81:84:4e:08:4c:9a:06"
+    SshHostKeyFingerprint = $serverFingerprint
 }
  
 $session = New-Object WinSCP.Session
