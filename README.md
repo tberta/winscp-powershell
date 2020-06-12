@@ -3,10 +3,8 @@ This repo contains an example of running the <a href url="https://winscp.net/eng
 
 The intent was to keep this version as generic as possible so it could be used for as many different sites as possible.  If you are running this from OpCon it should fail (with an Exit Code of 1) if there are any issues.  Any other pertinant logging will be in the job output.
 
-*The current iteration only supports downloading of files.  It will be updated in the future with more functionality.
-
 # Prerequisites
-* WinSCP 5.15.9
+* WinSCP 5.15.9 : Download [WinSCP .NET / COM Libray](https://winscp.net/eng/downloads.php)
 * PowerShell 5.1
 
 # Instructions
