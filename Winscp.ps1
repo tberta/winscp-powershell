@@ -1,13 +1,16 @@
 param (
     [string] $winscpPath = "C:\Program Files (x86)\WinSCP\WinSCPnet.dll",
+    [string] $sessionURL, 
+    #sessionURL are like:
+    # <protocol> :// [ <username> [ : <password> ] [ ; <advanced> ] @ ] <host> [ : <port> ] /
     [string] $localPath,
     [string] $remotePath,
     [string] $hostname,
     [string] $user,
     [int]    $port = 22,
     [string] $password,
-    [string] $filemask = $null, # $null
-    [string] $direction,
+    [string] $filemask = $null,
+    [string] $command,
     [string] $protocol = "sftp",
     [string] $serverFingerprint,
     [switch] $deleteSourceFile = $false
@@ -24,46 +27,60 @@ catch [Exception]
     Exit 1
 }
 
-switch ($protocol)
-{
-    "sftp"   {  $winscpProtocol = [WinSCP.Protocol]::sftp   }
-    "ftp"    {  $winscpProtocol = [WinSCP.Protocol]::ftp    }
-    "s3"     {  $winscpProtocol = [WinSCP.Protocol]::s3     }
-    "scp"    {  $winscpProtocol = [WinSCP.Protocol]::scp    }
-    "webdav" {  $winscpProtocol = [WinSCP.Protocol]::webdav }
-    default  
-	{     
-		Write-Host "Unknown protocol specified"
-        Write-Host "Exiting..."
-        Exit 2
-	}
-
-}
-
-if(($protocol -eq "sftp") -or ($protocol -eq "scp"))
-{
-    if (-not $serverFingerprint)
+if($sessionURL) {
+    $sessionOptions = New-Object WinSCP.SessionOptions
+    try {
+        $sessionOptions.ParseURL($sessionURL)    
+    }
+    catch [Exception]
     {
-        
-        "Protocol $protocol specified but serverFingerprint is missing. Must be defined "
-        'Argument Example : -serverFingerprint "ssh-rsa 2048 e0:a3:0f:1a:04:df:5a:cf:c9:81:84:4e:08:4c:9a:06"'
-        Exit 3
+        Write-Host "Error while parsing provided sessionURL argument : '$sessionURL'"
+        Write-Host $_.Exception.Message
+        Exit 1
+    }
+} else {
+    switch ($protocol)
+    {
+        "sftp"   {  $winscpProtocol = [WinSCP.Protocol]::sftp   }
+        "ftp"    {  $winscpProtocol = [WinSCP.Protocol]::ftp    }
+        "s3"     {  $winscpProtocol = [WinSCP.Protocol]::s3     }
+        "scp"    {  $winscpProtocol = [WinSCP.Protocol]::scp    }
+        "webdav" {  $winscpProtocol = [WinSCP.Protocol]::webdav }
+        default  
+        {     
+            Write-Host "Unknown protocol specified"
+            Write-Host "Exiting..."
+            Exit 2
+        }
+    }
+
+    if(($protocol -eq "sftp") -or ($protocol -eq "scp")) {
+        if (-not $serverFingerprint)
+        {
+            
+            "Protocol $protocol specified but serverFingerprint is missing. Must be defined "
+            'Argument Example : -serverFingerprint "ssh-rsa 2048 e0:a3:0f:1a:04:df:5a:cf:c9:81:84:4e:08:4c:9a:06"'
+            Exit 3
+        }
+    }
+
+    # Setup session options
+    $sessionOptions = New-Object WinSCP.SessionOptions -Property @{
+        Protocol = $winscpProtocol
+        HostName = $hostname
+        UserName = $user
+        Password = $password
+        PortNumber = $port
+        SshHostKeyFingerprint = $serverFingerprint
     }
 }
 
-# Setup session options
-$sessionOptions = New-Object WinSCP.SessionOptions -Property @{
-    Protocol = $winscpProtocol
-    HostName = $hostname
-    UserName = $user
-    Password = $password
-    PortNumber = $port
-    SshHostKeyFingerprint = $serverFingerprint
-}
- 
+#debug: 
+$sessionOptions
+
 $session = New-Object WinSCP.Session
 
-if($direction -eq "upload")
+if($command -eq "upload")
 {
     try
     {
@@ -97,7 +114,7 @@ if($direction -eq "upload")
         $session.Dispose()
     }
 }
-elseif($direction -eq "download")
+elseif($command -eq "download")
 {
     try
     {
@@ -132,6 +149,6 @@ elseif($direction -eq "download")
 }
 else 
 {
-    Write-Host "Direction not specified, must be 'upload' or 'download'"
+    Write-Host "Command not specified, must be 'upload' or 'download'"
     Exit 8
 }

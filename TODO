@@ -1,0 +1,3 @@
+Improve parameters handling
+If localPath is not defined, use current directory
+If sessionURL is specified, remotePath should be automatically determined
