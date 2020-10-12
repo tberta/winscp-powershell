@@ -1,18 +1,22 @@
 param (
-    [string] $winscpPath = "C:\Program Files (x86)\WinSCP\WinSCPnet.dll",
-    [string] $localPath,
-    [string] $remotePath,
-    [string] $hostname,
-    [string] $user,
-    [int]    $port = 22,
-    [string] $password,
-    [string] $filemask = $null, # $null
-    [string] $direction,
-    [string] $protocol = "sftp",
-    [string] $serverFingerprint,
-    [switch] $deleteSourceFile = $false
+                                [string] $winscpPath = "C:\Program Files (x86)\WinSCP\WinSCPnet.dll",
+    [Parameter(Mandatory=$true)][string] $localPath,
+    [Parameter(Mandatory=$true)][string] $remotePath,
+    [Parameter(Mandatory=$true)][string] $hostname,
+                                [string] $user,
+                                [int]    $port = 22,
+                                [string] $password,
+                                [string] $filemask = $null, # $null
+    [Parameter(Mandatory=$true)][string] $direction,
+                                [string] $protocol = "sftp",
+                                [string] $serverFingerprint,
+                                [switch] $deleteSourceFile = $false
 )
-         
+
+Write-Debug "Received arguments :"
+Write-Debug $PSBoundParameters | Format-Table -Property Key, Value
+Write-Debug "Args : $args" 
+
 try
 {
     # Load WinSCP .NET assembly
