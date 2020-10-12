@@ -1,3 +1,20 @@
+<#
+.SYNOPSIS
+
+.DESCRIPTION
+
+.PARAMETER xxxx
+
+
+.NOTES
+
+
+.EXAMPLE
+
+
+.LINK
+
+#>
 param (
                                 [string] $winscpPath = "C:\Program Files (x86)\WinSCP\WinSCPnet.dll",
     [Parameter(Mandatory=$true)][string] $localPath,
@@ -53,6 +70,13 @@ if(($protocol -eq "sftp") -or ($protocol -eq "scp"))
         'Argument Example : -serverFingerprint "ssh-rsa 2048 e0:a3:0f:1a:04:df:5a:cf:c9:81:84:4e:08:4c:9a:06"'
         Exit 3
     }
+}
+
+if($localPath.Contains("\\""") -eq $true)
+{
+    Write-Warning "Bad argument in the command line?"
+    Write-Warning "When running in OpCon, you need an extra *ending* slash for localPath : -localPath=""C:\Test\\"" "
+    Write-Warning "\$localPath : '$localPath'"
 }
 
 # Setup session options
