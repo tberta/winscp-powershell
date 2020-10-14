@@ -1,19 +1,41 @@
+[CmdletBinding(DefaultParameterSetName = 'combined')]
 param (
+    [Parameter(ParameterSetName = 'combined')]
+    [Parameter(ParameterSetName = 'splitted')]
     [string] $winscpPath = "C:\Program Files (x86)\WinSCP\WinSCPnet.dll",
-    [string] $sessionURL, 
+    [Parameter(ParameterSetName = 'combined')]
+        [string] $sessionURL, 
     #sessionURL are like:
     # <protocol> :// [ <username> [ : <password> ] [ ; <advanced> ] @ ] <host> [ : <port> ] /
-    [string] $localPath,
-    [string] $remotePath,
-    [string] $hostname,
-    [string] $user,
-    [int]    $port = 22,
+    [Parameter(ParameterSetName = 'combined')]
+    [Parameter(ParameterSetName = 'splitted')]
+        [string] $localPath,
+    [Parameter(ParameterSetName = 'combined')]
+    [Parameter(ParameterSetName = 'splitted')]
+        [string] $remotePath,
+    [Parameter(ParameterSetName = 'splitted')]
+        [string] $hostname,
+    [Parameter(ParameterSetName = 'splitted')]
+        [string] $user,
+    [Parameter(ParameterSetName = 'splitted')]
+        [int]    $port = 22,
+    [Parameter(ParameterSetName = 'splitted')]
     [string] $password,
-    [string] $filemask = $null,
-    [string] $command,
-    [string] $protocol = "sftp",
-    [string] $serverFingerprint,
-    [switch] $deleteSourceFile = $false
+    [Parameter(ParameterSetName = 'combined')]
+    [Parameter(ParameterSetName = 'splitted')]
+        [string] $filemask = $null,
+    [Parameter(ParameterSetName = 'combined')]
+    [Parameter(ParameterSetName = 'splitted')]
+    [ValidateSet('download','upload')]
+        [string] $command,
+    [Parameter(ParameterSetName = 'splitted')]
+    [ValidateSet('sftp','ftp','s3','scp','webdav')]
+        [string] $protocol = "sftp",
+    [Parameter(ParameterSetName = 'splitted')]
+        [string] $serverFingerprint,
+    [Parameter(ParameterSetName = 'combined')]
+    [Parameter(ParameterSetName = 'splitted')]
+        [switch] $deleteSourceFile = $false
 )
          
 try
@@ -70,17 +92,18 @@ if($sessionURL) {
         HostName = $hostname
         UserName = $user
         Password = $password
-        PortNumber = $port
-        SshHostKeyFingerprint = $serverFingerprint
     }
+    if (-not ($null -eq $port))                 { $sessionOptions.Add("PortNumber"              , $port) }
+    if (-not ($null -eq $serverFingerprint))    { $sessionOptions.Add("SshHostKeyFingerprint"   , $serverFingerprint) }
 }
 
 #debug: 
 $sessionOptions
 
+$returnCode = 0
 $session = New-Object WinSCP.Session
 
-if($command -eq "upload")
+if($command -eq "upload") 
 {
     try
     {
@@ -95,23 +118,28 @@ if($command -eq "upload")
 
         # Throw on any error
         $transferResult.Check()
-    
+        $transferResult
         # Print results
         foreach ($transfer in $transferResult.Transfers)
         {
-            Write-Host "Upload of $($transfer.FileName) succeeded"
+            Write-Host "$($transfer.FileName): Upload succeed"
+        }
+        foreach ($failure in $transferResult.Failures)
+        {
+            Write-Host "$($transfer.FileName): Upload did NOT succeed"
         }
     }
     catch [Exception]
     {
         Write-Host $session.Output
         Write-Host $_.Exception.Message
-        Exit 7
+        $returnCode = 5
     }
     finally
     {
         # Disconnect, clean up
         $session.Dispose()
+        exit $returnCode
     }
 }
 elseif($command -eq "download")
@@ -132,19 +160,24 @@ elseif($command -eq "download")
 
         foreach ($transfer in $transferResult.Transfers)
         {
-            Write-Host "Upload of $($transfer.FileName) succeeded"
+            Write-Host "$($transfer.FileName) : Download succeed"
+        }
+        foreach ($failure in $transferResult.Failures)
+        {
+            Write-Host "$($transfer.FileName): Download did NOT succeed"
         }
     }
     catch [Exception]
     {
         Write-Host $session.Output
         Write-Host $_.Exception.Message
-        Exit 7
-    }
+        $returnCode = 7
+    }    
     finally
     {
         # Disconnect, clean up
         $session.Dispose()
+        exit $returnCode
     }    
 }
 else 
