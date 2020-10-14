@@ -36,7 +36,10 @@ param (
     [Parameter(ParameterSetName = 'combined')]
     [Parameter(ParameterSetName = 'splitted')]
         [switch] $deleteSourceFile = $false
-)
+    # [Parameter(ParameterSetName = 'combined')]
+    # [Parameter(ParameterSetName = 'splitted')]
+    #     [switch] $verbose = $false
+    )
          
 try
 {
@@ -97,91 +100,59 @@ if($sessionURL) {
     if (-not ($null -eq $serverFingerprint))    { $sessionOptions.Add("SshHostKeyFingerprint"   , $serverFingerprint) }
 }
 
-#debug: 
-$sessionOptions
-
 $returnCode = 0
 $session = New-Object WinSCP.Session
 
-if($command -eq "upload") 
+try 
 {
-    try
-    {
-        # Connect
-        $session.Open($sessionOptions)
+    # Connect
+    $session.Open($sessionOptions)
 
+    if($command -eq "upload") {
         # Upload files
         #$transferOptions = New-Object WinSCP.TransferOptions
         #$transferOptions.TransferMode = [WinSCP.TransferMode]::Binary
         #$transferResult = $session.PutFiles($localPath,($remotePath + $filemask), $deleteSourceFile , $transferOptions)
         $transferResult = $session.PutFilestoDirectory($localPath,$remotePath, $filemask, $deleteSourceFile)
+    }
 
-        # Throw on any error
-        $transferResult.Check()
-        $transferResult
-        # Print results
-        foreach ($transfer in $transferResult.Transfers)
-        {
-            Write-Host "$($transfer.FileName): Upload succeed"
-        }
-        foreach ($failure in $transferResult.Failures)
-        {
-            Write-Host "$($transfer.FileName): Upload did NOT succeed"
-        }
-    }
-    catch [Exception]
-    {
-        Write-Host $session.Output
-        Write-Host $_.Exception.Message
-        $returnCode = 5
-    }
-    finally
-    {
-        # Disconnect, clean up
-        $session.Dispose()
-        exit $returnCode
-    }
-}
-elseif($command -eq "download")
-{
-    try
-    {
-        # Connect
-        $session.Open($sessionOptions)
-
-        # Download Files from remote
-        
+    if ($command -eq "download") {
         # Download the file and throw on any error
         #$sessionResult = $session.GetFiles(($remotePath + $fileName),($localPath + $filemask))
-        $sessionResult = $session.GetFilesToDirectory($remotePath, $localPath, $filemask, $deleteSourceFile)
-        
-        # Throw error if found
-        $sessionResult.Check()
+        $transferResult = $session.GetFilesToDirectory($remotePath, $localPath, $filemask, $deleteSourceFile)
+    }
 
+    # Throw error if found
+    $transferResult.Check()
+
+    if($verbose) {
         foreach ($transfer in $transferResult.Transfers)
         {
-            Write-Host "$($transfer.FileName) : Download succeed"
+            Write-Host "$($transfer.FileName) : $command succeed"
         }
         foreach ($failure in $transferResult.Failures)
         {
-            Write-Host "$($transfer.FileName): Download did NOT succeed"
+            Write-Host "$($transfer.FileName): $command did NOT succeed"
         }
     }
-    catch [Exception]
-    {
-        Write-Host $session.Output
-        Write-Host $_.Exception.Message
-        $returnCode = 7
-    }    
-    finally
-    {
-        # Disconnect, clean up
-        $session.Dispose()
-        exit $returnCode
-    }    
+    if ($($transferResult.IsSuccess)) {
+        Write-Host "$command transfer ended successfully"
+    }
+    Write-Host "Files transferred successfully : $($transferResult.Transfers.count)"
+    if ($($transferResult.Failures.Count)) {
+        Write-Host "Files not transferred : $($transferResult.Failures.Count)"
+    }
+
 }
-else 
+catch [Exception]
 {
-    Write-Host "Command not specified, must be 'upload' or 'download'"
-    Exit 8
-}
+    Write-Host $session.Output
+    Write-Host $_.Exception.Message
+    $returnCode = 7
+}    
+finally
+{
+    # Disconnect, clean up
+    $session.Dispose()
+    exit $returnCode
+}    
