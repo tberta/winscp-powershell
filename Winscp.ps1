@@ -15,11 +15,13 @@ param (
         [string] $remotePath,
     [Parameter(ParameterSetName = 'splitted')]
         [string] $hostname,
+    [Parameter(ParameterSetName = 'combined')]
     [Parameter(ParameterSetName = 'splitted')]
         [string] $user,
     [Parameter(ParameterSetName = 'splitted')]
         [int]    $port = 22,
-    [Parameter(ParameterSetName = 'splitted')]
+        [Parameter(ParameterSetName = 'combined')]
+        [Parameter(ParameterSetName = 'splitted')]
     [string] $password,
     [Parameter(ParameterSetName = 'combined')]
     [Parameter(ParameterSetName = 'splitted')]
@@ -63,6 +65,11 @@ if($sessionURL) {
         Write-Host $_.Exception.Message
         Exit 1
     }
+    # User or Password may need to be HTML encoded in a sessionURL
+    # So for convenience, User and Password value can be passed as arguments
+    if (-not ($null -eq $password)) { $sessionOptions.Password = $password }
+    if (-not ($null -eq $user))     { $sessionOptions.UserName = $user }
+
 } else {
     switch ($protocol)
     {
@@ -96,8 +103,8 @@ if($sessionURL) {
         UserName = $user
         Password = $password
     }
-    if (-not ($null -eq $port))                 { $sessionOptions.Add("PortNumber"              , $port) }
-    if (-not ($null -eq $serverFingerprint))    { $sessionOptions.Add("SshHostKeyFingerprint"   , $serverFingerprint) }
+    if (-not ($null -eq $port))                { $sessionOptions.PortNumber = $port }
+    if (-not ($null -eq $serverFingerprint))   { $sessionOptions.SshHostKeyFingerprint = $serverFingerprint }
 }
 
 $returnCode = 0
@@ -124,19 +131,19 @@ try
 
     # Throw error if found
     $transferResult.Check()
-
-    if($verbose) {
+    
+    if($VerbosePreference) {
         foreach ($transfer in $transferResult.Transfers)
         {
-            Write-Host "$($transfer.FileName) : $command succeed"
+            Write-Verbose "$($transfer.FileName) : $command succeed"
         }
         foreach ($failure in $transferResult.Failures)
         {
-            Write-Host "$($transfer.FileName): $command did NOT succeed"
+            Write-Verbose "$($transfer.FileName): $command did NOT succeed"
         }
     }
     if ($($transferResult.IsSuccess)) {
-        Write-Host "$command transfer ended successfully"
+        Write-Host "$command transfer job ended successfully"
     }
     Write-Host "Files transferred successfully : $($transferResult.Transfers.count)"
     if ($($transferResult.Failures.Count)) {
