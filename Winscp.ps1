@@ -1,3 +1,55 @@
+<#
+.SYNOPSIS
+Upload or download files to or from remote server.
+
+.DESCRIPTION
+Upload or download files to or from a remote server. Based on WinSCP .NET library
+Protocols supported by WinSCP : SFTP / SCP / S3 / FTP / WebDAV
+
+.PARAMETER sessionURL
+sessionURL are one string containing several or all information needed for remote site connection
+sessionURL Syntax:
+<protocol> :// [ <username> [ : <password> ] [ ; <advanced> ] @ ] <host> [ : <port> ] /
+sessionURL Example 
+
+.EXAMPLE
+.\Winscp.ps1 -protocol sftp -hostname remotehost.com -port 2222 -user mylogin -pass mypass -remotePath "/incoming" -localPath "C:\to_send" -filemask "*"
+
+.EXAMPLE
+$user = "mylogin"
+$pass = "mypass"
+$bucket = "s3-my-bucketname-001"
+$winscp = "C:\Programs Files\WinSCP\WinSCPnet.dll"
+$sessionURL = "s3://s3.amazonaws.com/$($bucket)/"
+$localPath = "C:\To_upload"
+$remotePath = "incoming"
+$filemask = "*.txt"
+$command = "upload"
+PS> Winscp.ps1 -winscpPath $winscp -sessionURL $sessionURL -localPath $localPath -filemask $filemask -remotePath $remotePath -command $command -password $pass -user $user
+
+.EXAMPLE
+$user = "mylogin"
+$pass = "mypass"
+$pass = [uri]::EscapeDataString($pass) # To make it valid in sessionURL
+$bucket = "s3-my-bucketname-001"
+$sessionURL = "s3://$($user):$($pass)@s3.amazonaws.com/$($bucket)/"
+$localPath = "C:\To_upload"
+$remotePath = "incoming"
+$command = "upload"
+PS> Winscp.ps1 -winscpPath $winscp -sessionURL $sessionURL -localPath $localPath -filemask $filemask -remotePath $remotePath -command $command -password $pass -user $user
+
+.INPUTS
+
+None. You cannot pipe objects to Winscp1.ps1.
+
+.OUTPUTS
+
+None. Besides some Console output, Winscp1.ps1 does not generate any output object.
+
+.LINK
+https://github.com/tberta/winscp-powershell
+
+#>
 [CmdletBinding(DefaultParameterSetName = 'combined')]
 param (
     [Parameter(ParameterSetName = 'combined')]
@@ -5,15 +57,13 @@ param (
     [string] $winscpPath = "C:\Program Files (x86)\WinSCP\WinSCPnet.dll",
     [Parameter(ParameterSetName = 'combined')]
         [string] $sessionURL, 
-    #sessionURL are like:
-    # <protocol> :// [ <username> [ : <password> ] [ ; <advanced> ] @ ] <host> [ : <port> ] /
-    [Parameter(ParameterSetName = 'combined')]
-    [Parameter(ParameterSetName = 'splitted')]
+    [Parameter(ParameterSetName = 'combined', Mandatory=$true)]
+    [Parameter(ParameterSetName = 'splitted', Mandatory=$true)]
         [string] $localPath,
     [Parameter(ParameterSetName = 'combined')]
     [Parameter(ParameterSetName = 'splitted')]
         [string] $remotePath,
-    [Parameter(ParameterSetName = 'splitted')]
+    [Parameter(ParameterSetName = 'splitted', Mandatory=$true)]
         [string] $hostname,
     [Parameter(ParameterSetName = 'combined')]
     [Parameter(ParameterSetName = 'splitted')]
@@ -26,8 +76,8 @@ param (
     [Parameter(ParameterSetName = 'combined')]
     [Parameter(ParameterSetName = 'splitted')]
         [string] $filemask = $null,
-    [Parameter(ParameterSetName = 'combined')]
-    [Parameter(ParameterSetName = 'splitted')]
+    [Parameter(ParameterSetName = 'combined', Mandatory=$true)]
+    [Parameter(ParameterSetName = 'splitted', Mandatory=$true)]
     [ValidateSet('download','upload')]
         [string] $command,
     [Parameter(ParameterSetName = 'splitted')]
