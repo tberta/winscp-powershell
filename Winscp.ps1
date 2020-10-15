@@ -20,9 +20,9 @@ param (
         [string] $user,
     [Parameter(ParameterSetName = 'splitted')]
         [int]    $port = 22,
-        [Parameter(ParameterSetName = 'combined')]
-        [Parameter(ParameterSetName = 'splitted')]
-    [string] $password,
+    [Parameter(ParameterSetName = 'combined')]
+    [Parameter(ParameterSetName = 'splitted')]
+        [string] $password,
     [Parameter(ParameterSetName = 'combined')]
     [Parameter(ParameterSetName = 'splitted')]
         [string] $filemask = $null,
@@ -54,6 +54,14 @@ catch [Exception]
     Exit 1
 }
 
+if(-not (Test-Path -Path $localPath))
+{
+    Write-Error "Local folder doesn't exist" -Category ObjectNotFound
+    Write-Verbose "When running in OpCon, you need an extra *ending* slash for localPath : -localPath=""C:\Test\\"" " -Verbose
+    Write-Verbose "Received argument: '$localPath'" -Verbose
+    Exit 2
+}
+
 if($sessionURL) {
     $sessionOptions = New-Object WinSCP.SessionOptions
     try {
@@ -63,7 +71,7 @@ if($sessionURL) {
     {
         Write-Host "Error while parsing provided sessionURL argument : '$sessionURL'"
         Write-Host $_.Exception.Message
-        Exit 1
+        Exit 3
     }
     # User or Password may need to be HTML encoded in a sessionURL
     # So for convenience, User and Password value can be passed as arguments
@@ -82,7 +90,7 @@ if($sessionURL) {
         {     
             Write-Host "Unknown protocol specified"
             Write-Host "Exiting..."
-            Exit 2
+            Exit 4
         }
     }
 
@@ -92,7 +100,7 @@ if($sessionURL) {
             
             "Protocol $protocol specified but serverFingerprint is missing. Must be defined "
             'Argument Example : -serverFingerprint "ssh-rsa 2048 e0:a3:0f:1a:04:df:5a:cf:c9:81:84:4e:08:4c:9a:06"'
-            Exit 3
+            Exit 5
         }
     }
 
