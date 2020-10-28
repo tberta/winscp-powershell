@@ -1,3 +1,11 @@
 Improve parameters handling
 If localPath is not defined, use current directory
 If sessionURL is specified, remotePath should be automatically determined
+
+Improve S3 Buckets handling
+- Remote path is mandatory (used in 'put...')
+- When Remote Path begins with /, it suppress the bucket name passed in sessionURL when 'path mode' is enabled
+- Region is sometimes mandatory. How to manage it? in sessionURL?
+- Add DeleteSourceFile in the examples
+
+Change WinSCP DLL Lookup to lookup in current dir
