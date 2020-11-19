@@ -162,7 +162,7 @@ if($sessionURL) {
         Password = $password
     }
     if (-not ($null -eq $port))                { $sessionOptions.PortNumber = $port }
-    if (-not ($null -eq $serverFingerprint))   { $sessionOptions.SshHostKeyFingerprint = $serverFingerprint }
+    if ($serverFingerprint)   { $sessionOptions.SshHostKeyFingerprint = $serverFingerprint }
 }
 
 $returnCode = 0
