@@ -54,131 +54,258 @@ https://github.com/tberta/winscp-powershell
 param (
     [Parameter(ParameterSetName = 'combined')]
     [Parameter(ParameterSetName = 'splitted')]
-    [string] $winscpPath = "C:\Program Files (x86)\WinSCP\WinSCPnet.dll",
+    [ValidateScript({
+        Test-Path -Path $_ -PathType Leaf
+    })]
+    [string]
+    $winscpPath = "C:\Program Files (x86)\WinSCP\WinSCPnet.dll",
+
     [Parameter(ParameterSetName = 'combined')]
-        [string] $sessionURL, 
-    [Parameter(ParameterSetName = 'combined', Mandatory=$true)]
-    [Parameter(ParameterSetName = 'splitted', Mandatory=$true)]
-        [string] $localPath,
-    [Parameter(ParameterSetName = 'combined')]
-    [Parameter(ParameterSetName = 'splitted')]
-        [string] $remotePath,
-    [Parameter(ParameterSetName = 'splitted', Mandatory=$true)]
-        [string] $hostname,
-    [Parameter(ParameterSetName = 'combined')]
-    [Parameter(ParameterSetName = 'splitted')]
-        [string] $user,
-    [Parameter(ParameterSetName = 'splitted')]
-        [int]    $port = 22,
-    [Parameter(ParameterSetName = 'combined')]
-    [Parameter(ParameterSetName = 'splitted')]
-        [string] $password,
-    [Parameter(ParameterSetName = 'combined')]
-    [Parameter(ParameterSetName = 'splitted')]
-        [string] $filemask = $null,
-    [Parameter(ParameterSetName = 'combined', Mandatory=$true)]
-    [Parameter(ParameterSetName = 'splitted', Mandatory=$true)]
-    [ValidateSet('download','upload')]
-        [string] $command,
-    [Parameter(ParameterSetName = 'splitted')]
-    [ValidateSet('sftp','ftp','s3','scp','webdav')]
-        [string] $protocol = "sftp",
-    [Parameter(ParameterSetName = 'splitted')]
-        [string] $serverFingerprint,
+    [string]
+    $sessionURL, 
+
+    [Parameter(ParameterSetName = 'combined', Mandatory = $true)]
+    [Parameter(ParameterSetName = 'splitted', Mandatory = $true)]
+    [ValidateScript({
+        Test-Path -Path $_
+    })]
+    [string]
+    $localPath,
+
     [Parameter(ParameterSetName = 'combined')]
     [Parameter(ParameterSetName = 'splitted')]
-        [switch] $deleteSourceFile = $false
+    [string]
+    $remotePath,
+
+    [Parameter(ParameterSetName = 'splitted', Mandatory = $true)]
+    [string]
+    $hostname,
+    
+    [Parameter(ParameterSetName = 'splitted')]
+    [int]
+    $port = 22,
+
+    [Parameter(ParameterSetName = 'combined')]
+    [Parameter(ParameterSetName = 'splitted')]
+    [string]
+    $user,
+
+    [Parameter(ParameterSetName = 'combined')]
+    [Parameter(ParameterSetName = 'splitted')]
+    [SecureString] $password,
+
+    [Parameter(ParameterSetName = 'combined')]
+    [Parameter(ParameterSetName = 'splitted')]
+    [string]
+    $CSEntryName,
+
+    [Parameter(ParameterSetName = 'combined')]
+    [Parameter(ParameterSetName = 'splitted')]
+    [string]
+    $filemask = $null,
+
+    [Parameter(ParameterSetName = 'combined', Mandatory = $true)]
+    [Parameter(ParameterSetName = 'splitted', Mandatory = $true)]
+    [ValidateSet('download', 'upload')]
+    [string] 
+    $command,
+
+    [Parameter(ParameterSetName = 'splitted')]
+    [ValidateSet('sftp', 'ftp', 's3', 'scp', 'webdav')]
+    [string]
+    $protocol = "sftp",
+
+    [Parameter(ParameterSetName = 'splitted')]
+    [string]
+    $serverFingerprint,
+
+    [Parameter()]
+    [ValidateScript( {
+        Test-Path -Path $_ -PathType Leaf 
+    })]
+    [String]
+    $SshPrivateKeyPath,
+
+    [Parameter(ParameterSetName = 'combined')]
+    [Parameter(ParameterSetName = 'splitted')]
+    [string]
+    $SecurePrivateKeyCSEntryName,
+
+    [Parameter(ParameterSetName = 'combined')]
+    [Parameter(ParameterSetName = 'splitted')]
+    [switch] $deleteSourceFile = $false
+
     # [Parameter(ParameterSetName = 'combined')]
     # [Parameter(ParameterSetName = 'splitted')]
     #     [switch] $verbose = $false
-    )
+)
          
-try
-{
+try {
     # Load WinSCP .NET assembly
     Add-Type -Path "$winscpPath"
 }
-catch [Exception]
-{
+catch [Exception] {
     Write-Host "Error: "$_.Exception.Message
     Exit 1
 }
 
-if(-not (Test-Path -Path $localPath))
-{
+if (-not (Test-Path -Path $localPath)) {
     Write-Error "Local folder doesn't exist" -Category ObjectNotFound
-    Write-Verbose "When running in OpCon, you need an extra *ending* slash for localPath : -localPath=""C:\Test\\"" " -Verbose
-    Write-Verbose "Received argument: '$localPath'" -Verbose
+    Write-Information "When running in OpCon, you need an extra *ending* slash for localPath : -localPath=""C:\Test\\"" " -Verbose
+    Write-Information "Received argument: '$localPath'" -Verbose
     Exit 2
 }
 
-if($sessionURL) {
-    $sessionOptions = New-Object WinSCP.SessionOptions
+
+Function Get-Cred
+{
+    Param(
+        [Parameter(Mandatory)]
+        [string]
+        $EntryName
+    )
+
+    if (!Get-Module -ListAvailable -Name CredentialStore) {
+        throw [System.Management.Automation.RuntimeException] "Module CredentialStore not present.`r`n" +
+        "Please install it first"
+        Exit 3
+    }
+    try {
+        Import-Module -Name CredentialStore -ErrorAction Stop
+        [SecureString] $Password = Get-CsPassword -Name $EntryName -ErrorAction Stop
+    } catch {
+        throw [System.Management.Automation.RuntimeException] "Entry '${_}' does not exist.`r`n" +
+        "Please set it first with :`r`n" + 
+        "  Import-Module CredentialStore`r`n" +
+        "  Set-CsEntry -Name $EntryName`r`n" +
+        "Can't continue. Exiting."
+        Exit 3
+    }
+    
+    return $Password
+}
+
+
+Function Get-UserName
+{
+    Param(
+        [Parameter(Mandatory)]
+        [string]
+        $EntryName
+    )
+
+    if (!Get-Module -ListAvailable -Name CredentialStore) {
+        throw [System.Management.Automation.RuntimeException] "Module CredentialStore not present.`r`n" +
+        "Please install it first"
+        Exit 3
+    }
+    try {
+        Import-Module -Name CredentialStore -ErrorAction Stop
+        $UserName = (Get-CsEntry -Name $EntryName -ErrorAction Stop).UserName
+    } catch {
+        throw "Error $_`r`n" + $_.Exception.Message
+    }
+    
+    return $UserName
+}
+
+$sessionOptions = New-Object WinSCP.SessionOptions
+if ($sessionURL) {
     try {
         $sessionOptions.ParseURL($sessionURL)    
     }
-    catch [Exception]
-    {
+    catch [Exception] {
         Write-Host "Error while parsing provided sessionURL argument : '$sessionURL'"
         Write-Host $_.Exception.Message
         Exit 3
     }
     # User or Password may need to be HTML encoded in a sessionURL
     # So for convenience, User and Password value can be passed as arguments
-    if (-not ($null -eq $password)) { $sessionOptions.Password = $password }
-    if (-not ($null -eq $user))     { $sessionOptions.UserName = $user }
+    if ($user) { 
+        $sessionOptions.UserName = $user
+    }
+    if ($password) {
+        $sessionOptions.SecurePassword = $password
+    }
+    if($CSEntryName) {
+        $sessionOptions.UserName = Get-UserName $CSEntryName
+        $sessionOptions.SecurePassword = Get-Cred $CSEntryName
+    }
 
 } else {
-    switch ($protocol)
-    {
-        "sftp"   {  $winscpProtocol = [WinSCP.Protocol]::sftp   }
-        "ftp"    {  $winscpProtocol = [WinSCP.Protocol]::ftp    }
-        "s3"     {  $winscpProtocol = [WinSCP.Protocol]::s3     }
-        "scp"    {  $winscpProtocol = [WinSCP.Protocol]::scp    }
-        "webdav" {  $winscpProtocol = [WinSCP.Protocol]::webdav }
-        default  
-        {     
+    switch ($protocol) {
+        "sftp"      { $sessionOptionsHash.Add("Protocol", [WinSCP.Protocol]::sftp) }
+        "ftp"       { $sessionOptionsHash.Add("Protocol", [WinSCP.Protocol]::ftp) }
+        "s3"        { $sessionOptionsHash.Add("Protocol", [WinSCP.Protocol]::s3) }
+        "scp"       { $sessionOptionsHash.Add("Protocol", [WinSCP.Protocol]::scp) }
+        "webdav"    { $sessionOptionsHash.Add("Protocol", [WinSCP.Protocol]::webdav) }
+        default {     
             Write-Host "Unknown protocol specified"
             Write-Host "Exiting..."
             Exit 4
         }
-    }
+    }   
 
-    if(($protocol -eq "sftp") -or ($protocol -eq "scp")) {
-        if (-not $serverFingerprint)
-        {
+    if (($protocol -eq "sftp") -or ($protocol -eq "scp")) {
+        if (-not $serverFingerprint) {
             
             "Protocol $protocol specified but serverFingerprint is missing. Must be defined "
             'Argument Example : -serverFingerprint "ssh-rsa 2048 e0:a3:0f:1a:04:df:5a:cf:c9:81:84:4e:08:4c:9a:06"'
             Exit 5
+        } else {
+            $sessionOptionsHash.Add("SshHostKeyFingerprint", $serverFingerprint)
+        }
+        if($SshPrivateKeyPath) {
+            $sessionOptionsHash.Add("SshPrivateKeyPath", $(Resolve-Path -Path $SshPrivateKeyPath | Select-Object -ExpandProperty ProviderPath))
         }
     }
-
-    # Setup session options
-    $sessionOptions = New-Object WinSCP.SessionOptions -Property @{
-        Protocol = $winscpProtocol
-        HostName = $hostname
-        UserName = $user
-        Password = $password
+    if($port) {
+        $sessionOptionsHash.Add("PortNumber", $port)
     }
-    if (-not ($null -eq $port))                { $sessionOptions.PortNumber = $port }
-    if ($serverFingerprint)   { $sessionOptions.SshHostKeyFingerprint = $serverFingerprint }
+    if($hostname) {
+        $sessionOptionsHash.Add("HostName", $hostname)
+    }
+    
+    if($user) {
+        $sessionOptionsHash.Add("UserName", $User)
+    } else {
+        $sessionOptionsHash.Add("UserName", (Get-UserName $CSEntryName))
+    }
+
+    if ($password) {
+        $sessionOptionsHash.Add("SecurePassword", $password)
+    } else {
+        $sessionOptionsHash.Add("SecurePassword", (Get-Cred $CSEntryName))
+    }
+
+    if($SshPrivateKeyPath) {
+        $sessionOptionsHash.Add("SshPrivateKeyPath", $SshPrivateKeyPath)
+    }
+
+    if($SecurePrivateKeyCSEntryName) {
+        $sessionOptionsHash.Add("SecurePrivateKeyPassphrase", (Get-Cred $SecurePrivateKeyCSEntryName))
+    }
 }
 
+
+# Setup session options
+foreach ($key in $sessionOptionsHash.Keys) {
+    $sessionOptions.AddRawSettings($key, $sessionOptionsHash[$key])
+}  
+$sessionOptions
 $returnCode = 0
 $session = New-Object WinSCP.Session
 
-try 
-{
+try {
     # Connect
     $session.Open($sessionOptions)
 
-    if($command -eq "upload") {
+    if ($command -eq "upload") {
         # Upload files
         #$transferOptions = New-Object WinSCP.TransferOptions
         #$transferOptions.TransferMode = [WinSCP.TransferMode]::Binary
         #$transferResult = $session.PutFiles($localPath,($remotePath + $filemask), $deleteSourceFile , $transferOptions)
-        $transferResult = $session.PutFilestoDirectory($localPath,$remotePath, $filemask, $deleteSourceFile)
+        $transferResult = $session.PutFilestoDirectory($localPath, $remotePath, $filemask, $deleteSourceFile)
     }
 
     if ($command -eq "download") {
@@ -190,13 +317,11 @@ try
     # Throw error if found
     $transferResult.Check()
     
-    if($VerbosePreference) {
-        foreach ($transfer in $transferResult.Transfers)
-        {
+    if ($VerbosePreference) {
+        foreach ($transfer in $transferResult.Transfers) {
             Write-Verbose "$($transfer.FileName) : $command succeed"
         }
-        foreach ($failure in $transferResult.Failures)
-        {
+        foreach ($failure in $transferResult.Failures) {
             Write-Verbose "$($transfer.FileName): $command did NOT succeed"
         }
     }
@@ -209,14 +334,12 @@ try
     }
 
 }
-catch [Exception]
-{
+catch [Exception] {
     Write-Host $session.Output
     Write-Host $_.Exception.Message
     $returnCode = 7
 }    
-finally
-{
+finally {
     # Disconnect, clean up
     $session.Dispose()
     exit $returnCode
