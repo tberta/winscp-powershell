@@ -50,10 +50,7 @@ None. Besides some Console output, Winscp1.ps1 does not generate any output obje
 https://github.com/tberta/winscp-powershell
 
 #>
-# [CmdletBinding(DefaultParameterSetName = 'combined')]
 param (
-    # [Parameter(ParameterSetName = 'combined')]
-    # [Parameter(ParameterSetName = 'splitted')]
     [ValidateScript( {
             Test-Path -Path $_ -PathType Leaf
         })]
@@ -64,93 +61,69 @@ param (
     [string]
     $sessionURL, 
 
-    # [Parameter(ParameterSetName = 'combined', Mandatory = $true)]
-    # [Parameter(ParameterSetName = 'splitted', Mandatory = $true)]
     [ValidateScript( {
             Test-Path -Path $_
         })]
     [string]
     $localPath,
 
-    # [Parameter(ParameterSetName = 'combined')]
-    # [Parameter(ParameterSetName = 'splitted')]
     [string]
     $remotePath,
 
-    # [Parameter(ParameterSetName = 'splitted', Mandatory = $true)]
     [string]
     $HostName,
     
-    # [Parameter(ParameterSetName = 'splitted')]
     [Alias("Port")]
     [int]
     $PortNumber,
 
-    # [Parameter(ParameterSetName = 'combined')]
-    # [Parameter(ParameterSetName = 'splitted')]
     [Alias("User")]
     [string]
     $UserName,
 
-    # [Parameter(ParameterSetName = 'combined')]
-    # [Parameter(ParameterSetName = 'splitted')]
     [Alias("Password")]
     [SecureString] $SecurePassword,
 
-    # [Parameter(ParameterSetName = 'combined')]
-    # [Parameter(ParameterSetName = 'splitted')]
     [string]
     $CSEntryName,
 
-    # [Parameter(ParameterSetName = 'combined')]
-    # [Parameter(ParameterSetName = 'splitted')]
     [string]
     $Filemask = $null,
 
-    # [Parameter(ParameterSetName = 'combined', Mandatory = $true)]
-    # [Parameter(ParameterSetName = 'splitted', Mandatory = $true)]
     [ValidateSet('download', 'upload')]
     [string] 
     $command,
 
-    # [Parameter(ParameterSetName = 'splitted')]
     [ValidateSet('sftp', 'ftp', 's3', 'scp', 'webdav')]
     [string]
     $Protocol,
 
-    # [Parameter(ParameterSetName = 'splitted')]
     [Alias("serverFingerprint")]
     [string]
     $SshHostKeyFingerprint,
 
-    [Parameter()]
+
     [ValidateScript( {
             Test-Path -Path $_ -PathType Leaf 
         })]
     [String]
     $SshPrivateKeyPath,
 
-    # [Parameter(ParameterSetName = 'combined')]
-    # [Parameter(ParameterSetName = 'splitted')]
     [string]
     $SecurePrivateKeyCSEntryName,
 
-    [Parameter()]
-    [Switch]
-    $GiveUpSecurityAndAcceptAnySshHostKey,
+    [ValidateSet("Active", "Passive")]
+    [String]
+    $FtpMode,
 
-    [Parameter()]
-    [Switch]
-    $GiveUpSecurityAndAcceptAnyTlsHostCertificate,
+    [ValidateSet("Implicit", "Explicit", "None")]
+    [String]
+    $FtpSecure,
 
-    # [Parameter(ParameterSetName = 'combined')]
-    # [Parameter(ParameterSetName = 'splitted')]
+    [Switch]
+    $IgnoreHostAuthenticityCheck,
+
     [switch] $deleteSourceFile = $false
-
-
-    # [Parameter(ParameterSetName = 'combined')]
-    # [Parameter(ParameterSetName = 'splitted')]
-    #     [switch] $verbose = $false
 )
          
 try {
@@ -162,12 +135,7 @@ catch [Exception] {
     Exit 1
 }
 
-# if (-not (Test-Path -Path $localPath)) {
-#     Write-Error "Local folder doesn't exist" -Category ObjectNotFound
-#     Write-Information "When running in OpCon, you need an extra *ending* slash for localPath : -localPath=""C:\Test\\"" " -Verbose
-#     Write-Information "Received argument: '$localPath'" -Verbose
-#     Exit 2
-# }
+
 
 
 Function Get-Cred {
@@ -248,10 +216,10 @@ switch ($PSBoundKeys) {
     'Protocol' {
         switch ($Protocol) {
 
-            "sftp" { $PSBoundParameters["Protocol"] = [WinSCP.Protocol]::sftp   ; break }
-            "ftp" { $PSBoundParameters["Protocol"] = [WinSCP.Protocol]::ftp    ; break }
-            "s3" { $PSBoundParameters["Protocol"] = [WinSCP.Protocol]::s3     ; break }
-            "scp" { $PSBoundParameters["Protocol"] = [WinSCP.Protocol]::scp    ; break }
+            "sftp"  { $PSBoundParameters["Protocol"] = [WinSCP.Protocol]::sftp   ; break }
+            "ftp"   { $PSBoundParameters["Protocol"] = [WinSCP.Protocol]::ftp    ; break }
+            "s3"    { $PSBoundParameters["Protocol"] = [WinSCP.Protocol]::s3     ; break }
+            "scp"   { $PSBoundParameters["Protocol"] = [WinSCP.Protocol]::scp    ; break }
             "webdav" { $PSBoundParameters["Protocol"] = [WinSCP.Protocol]::webdav ; break }
             default {     
                 Write-Host "Unknown protocol specified"
@@ -267,6 +235,42 @@ switch ($PSBoundKeys) {
 
     'SecurePrivateKeyCSEntryName' {
         $PSBoundParameters["SecurePrivateKeyPassphrase"] = Get-Cred $SecurePrivateKeyCSEntryName
+    }
+
+    'FtpMode' {
+        if ($FtpMode -eq "Active") {
+            $PSBoundParameters["FtpMode"] = [WinSCP.FtpMode]::Active
+        }
+        if ($FtpMode -eq "Passive") {
+            $PSBoundParameters["FtpMode"] = [WinSCP.FtpMode]::Passive
+        }
+
+    }
+
+    'FtpSecure' {
+        if ($SecurityMode -eq "Implicit") {
+            $PSBoundParameters["FtpSecure"] = [WinSCP.FtpSecure]::Implicit
+        }
+        if ($SecurityMode -eq "Explicit") {
+            $PSBoundParameters["FtpSecure"] = [WinSCP.FtpSecure]::Explicit
+        }
+    }
+
+    'IgnoreHostAuthenticityCheck' {
+        if ($IgnoreHostAuthenticityCheck) {
+            if ($Protocol -in ("sftp", "scp")) {
+                $PSBoundParameters["GiveUpSecurityAndAcceptAnySshHostKey"] = $true
+            }         
+            if ($FtpSecure -eq "Implicit") {
+                $PSBoundParameters["GiveUpSecurityAndAcceptAnyTlsHostCertificate"] = $true
+            }
+            # elseif ($FtpSecure -eq "Explicit") {
+            #     $PSBoundParameters["GiveUpSecurityAndAcceptAnySshHostKey"] = $true
+            # }
+            elseif ($FtpSecure -eq "Explicit") {
+                $PSBoundParameters["GiveUpSecurityAndAcceptAnyTlsHostCertificate"] = $true
+            }
+        }
     }
 }
 if ($DebugPreference) {
@@ -303,7 +307,7 @@ try {
 
     if ($command -eq "upload") {
         # Upload files
-        $destinationMsg = "$remotePath"
+        $operationMessage = $command.ToUpper() + " Job from $LocalPath to $RemotePath Results:"
         $transferOptions = New-Object WinSCP.TransferOptions
         $transferOptions.TransferMode = [WinSCP.TransferMode]::Binary
         #$transferResult = $session.PutFiles($localPath,($remotePath + $filemask), $deleteSourceFile , $transferOptions)
@@ -311,7 +315,7 @@ try {
     }
 
     if ($command -eq "download") {
-        $destinationMsg = " $localPath"
+        $operationMessage = $command.ToUpper() + " Job from $RemotePath to $LocalPath Results:"
         # Download the file and throw on any error
         #$sessionResult = $session.GetFiles(($remotePath + $fileName),($localPath + $filemask))
         $transferOptions = New-Object WinSCP.TransferOptions
@@ -323,15 +327,16 @@ try {
     $transferResult.Check()
     
     # if ($VerbosePreference) {
+        Write-Host $operationMessage
         foreach ($transfer in $transferResult.Transfers) {
-            Write-Host "[  $command OK  ]   $($transfer.FileName)`t$command succeeded"
+            Write-Host "[  $command OK  ]   $($transfer.FileName)"
         }
         foreach ($failure in $transferResult.Failures) {
-            Write-Host "[ $command FAIL ]   $($transfer.FileName)`t$command did NOT succeed"
+            Write-Host "[ $command FAIL ]   $($transfer.FileName)"
         }
     # }
     if ($($transferResult.IsSuccess)) {
-        Write-Host "$command transfer job ended successfully"
+        Write-Host "$command job ended successfully"
     }
     Write-Host "Files transferred successfully : $($transferResult.Transfers.count)"
     if ($($transferResult.Failures.Count)) {
@@ -340,8 +345,10 @@ try {
 
 }
 catch [Exception] {
-    Write-Host $session.Output
-    Write-Host $_.Exception.Message
+    Write-Error "Received Error '$_'"
+    Write-Host "<---- Session Output ---->"
+    $session.Output | Out-String
+    Write-Host "^---- Session Output ----^"
     $returnCode = 7
 }    
 finally {
