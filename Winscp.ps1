@@ -65,10 +65,10 @@ param (
             Test-Path -Path $_
         })]
     [string]
-    $localPath,
+    $LocalPath,
 
     [string]
-    $remotePath,
+    $RemotePath,
 
     [string]
     $HostName,
@@ -136,8 +136,6 @@ catch [Exception] {
 }
 
 
-
-
 Function Get-Cred {
     Param(
         [Parameter(Mandatory)]
@@ -194,15 +192,31 @@ $sessionOptions = New-Object WinSCP.SessionOptions
 
 # User or Password may need to be HTML encoded in a sessionURL
 # So for convenience, User and Password value can be passed as arguments
-[System.Collections.Generic.List[string]] $PSBoundKeys = $PSBoundParameters.Keys
-switch ($PSBoundKeys) {
+# [System.Collections.Generic.List[string]] $PSBoundKeys = $PSBoundParameters.Keys
+switch ($PSBoundParameters.Keys) {
     
     'CSEntryName' {
-        $PSBoundParameters["UserName"] = Get-UserName $CSEntryName
-        $PSBoundParameters["SecurePassword"] = Get-Cred $CSEntryName
+        $sessionOptions.UserName = Get-UserName $CSEntryName
+        $sessionOptions.SecurePassword = Get-Cred $CSEntryName
     }
     
     'sessionURL' {
+        
+        if (-not $RemotePath) {
+            
+            [uri] $ParsedURL = $sessionURL
+            
+            if ($ParsedURL.AbsolutePath -and 
+            ( $ParsedURL.AbsolutePath -ne "/" ) -and
+            ( -not ($parsedURL.Scheme -in ("s3", "webdav")))
+            ) {
+                # Remote Path not supported in sessionURL for other protocol than s3 and webdav.
+                # Workaround to allow it
+                # $Protocol = $ParsedURL.Scheme
+                $RemotePath = [uri]::UnescapeDataString($ParsedURL.AbsolutePath)
+                $sessionURL = $sessionURL.Substring(0,$sessionURL.LastIndexOf($parsedURL.AbsolutePath))
+            }
+        }
         try {
             $sessionOptions.ParseURL($sessionURL)    
         }
@@ -216,11 +230,11 @@ switch ($PSBoundKeys) {
     'Protocol' {
         switch ($Protocol) {
 
-            "sftp"  { $PSBoundParameters["Protocol"] = [WinSCP.Protocol]::sftp   ; break }
-            "ftp"   { $PSBoundParameters["Protocol"] = [WinSCP.Protocol]::ftp    ; break }
-            "s3"    { $PSBoundParameters["Protocol"] = [WinSCP.Protocol]::s3     ; break }
-            "scp"   { $PSBoundParameters["Protocol"] = [WinSCP.Protocol]::scp    ; break }
-            "webdav" { $PSBoundParameters["Protocol"] = [WinSCP.Protocol]::webdav ; break }
+            "sftp"  { $sessionOptions.Protocol = [WinSCP.Protocol]::sftp   ; break }
+            "ftp"   { $sessionOptions.Protocol = [WinSCP.Protocol]::ftp    ; break }
+            "s3"    { $sessionOptions.Protocol = [WinSCP.Protocol]::s3     ; break }
+            "scp"   { $sessionOptions.Protocol = [WinSCP.Protocol]::scp    ; break }
+            "webdav" { $sessionOptions.Protocol = [WinSCP.Protocol]::webdav ; break }
             default {     
                 Write-Host "Unknown protocol specified"
                 Write-Host "Exiting..."
@@ -230,72 +244,70 @@ switch ($PSBoundKeys) {
     }
 
     'SshPrivateKeyPath' {
-        $PSBoundParameters["SshPrivateKeyPath"] = $(Resolve-Path -Path $SshPrivateKeyPath | Select-Object -ExpandProperty ProviderPath)
+        $sessionOptions.SshPrivateKeyPath = $(Resolve-Path -Path $SshPrivateKeyPath | Select-Object -ExpandProperty ProviderPath)
     }
 
     'SecurePrivateKeyCSEntryName' {
-        $PSBoundParameters["SecurePrivateKeyPassphrase"] = Get-Cred $SecurePrivateKeyCSEntryName
+        $sessionOptions.SecurePrivateKeyPassphrase = Get-Cred $SecurePrivateKeyCSEntryName
     }
 
     'FtpMode' {
         if ($FtpMode -eq "Active") {
-            $PSBoundParameters["FtpMode"] = [WinSCP.FtpMode]::Active
+            $sessionOptions.FtpMode = [WinSCP.FtpMode]::Active
         }
         if ($FtpMode -eq "Passive") {
-            $PSBoundParameters["FtpMode"] = [WinSCP.FtpMode]::Passive
+            $sessionOptions.FtpMode = [WinSCP.FtpMode]::Passive
         }
-
     }
 
     'FtpSecure' {
-        if ($SecurityMode -eq "Implicit") {
-            $PSBoundParameters["FtpSecure"] = [WinSCP.FtpSecure]::Implicit
+        if ($FtpSecure -eq "Implicit") {
+            $sessionOptions.FtpSecure = [WinSCP.FtpSecure]::Implicit
         }
-        if ($SecurityMode -eq "Explicit") {
-            $PSBoundParameters["FtpSecure"] = [WinSCP.FtpSecure]::Explicit
+        if ($FtpSecure -eq "Explicit") {
+            $sessionOptions.FtpSecure = [WinSCP.FtpSecure]::Explicit
         }
     }
 
     'IgnoreHostAuthenticityCheck' {
-        if ($IgnoreHostAuthenticityCheck) {
-            if ($Protocol -in ("sftp", "scp")) {
-                $PSBoundParameters["GiveUpSecurityAndAcceptAnySshHostKey"] = $true
+        if ($IgnoreHostAuthenticityCheck.IsPresent) {
+            if ($Protocol -in ("sftp", "scp") -or $sessionOptions.Protocol -in ("sftp", "scp")) {
+                $sessionOptions.GiveUpSecurityAndAcceptAnySshHostKey = $true
             }         
             if ($FtpSecure -eq "Implicit") {
-                $PSBoundParameters["GiveUpSecurityAndAcceptAnyTlsHostCertificate"] = $true
+                $sessionOptions.GiveUpSecurityAndAcceptAnyTlsHostCertificate = $true
             }
             # elseif ($FtpSecure -eq "Explicit") {
             #     $PSBoundParameters["GiveUpSecurityAndAcceptAnySshHostKey"] = $true
             # }
             elseif ($FtpSecure -eq "Explicit") {
-                $PSBoundParameters["GiveUpSecurityAndAcceptAnyTlsHostCertificate"] = $true
+                $sessionOptions.GiveUpSecurityAndAcceptAnyTlsHostCertificate = $true
             }
         }
     }
 }
-if ($DebugPreference) {
-    $PSBoundParameters
-}
-
+# if ($Debug.IsPresent) {
+    $sessionOptions
+# }
 # Setup session options
-try {
-    $sessionOptionObjectProperties = $sessionOptions |
-    Get-Member -MemberType Property |
-    Select-Object -ExpandProperty Name
-    $keys = ($PSBoundParameters.Keys).Where( {
-            $_ -in $sessionOptionObjectProperties
-        })
+# try {
+#     $sessionOptionObjectProperties = $sessionOptions |
+#     Get-Member -MemberType Property |
+#     Select-Object -ExpandProperty Name
+#     $keys = ($PSBoundParameters.Keys).Where( {
+#             $_ -in $sessionOptionObjectProperties
+#         })
 
-    foreach ($key in $keys) {
-        Write-Debug -Message ("Adding {0} value {1}" -f $key, $PSBoundParameters[$key])
-        $sessionOptions.$key = $PSBoundParameters[$key]
-    }
-}
-catch {
-    $PSCmdlet.ThrowTerminatingError(
-        $_
-    )
-}
+#     foreach ($key in $keys) {
+#         Write-Debug -Message ("Adding {0} value {1}" -f $key, $PSBoundParameters[$key])
+#         $sessionOptions.$key = $PSBoundParameters[$key]
+#     }
+# }
+# catch {
+#     $PSCmdlet.ThrowTerminatingError(
+#         $_
+#     )
+# }
 
 $returnCode = 0
     
@@ -311,7 +323,7 @@ try {
         $transferOptions = New-Object WinSCP.TransferOptions
         $transferOptions.TransferMode = [WinSCP.TransferMode]::Binary
         #$transferResult = $session.PutFiles($localPath,($remotePath + $filemask), $deleteSourceFile , $transferOptions)
-        $transferResult = $session.PutFilestoDirectory($localPath, $remotePath, $filemask, $deleteSourceFile)
+        $transferResult = $session.PutFilestoDirectory($localPath, $RemotePath, $Filemask, $deleteSourceFile)
     }
 
     if ($command -eq "download") {
@@ -320,7 +332,7 @@ try {
         #$sessionResult = $session.GetFiles(($remotePath + $fileName),($localPath + $filemask))
         $transferOptions = New-Object WinSCP.TransferOptions
         $transferOptions.TransferMode = [WinSCP.TransferMode]::Binary
-        $transferResult = $session.GetFilesToDirectory($remotePath, $localPath, $filemask, $deleteSourceFile)
+        $transferResult = $session.GetFilesToDirectory($RemotePath, $LocalPath, $Filemask, $deleteSourceFile)
     }
 
     # Throw error if found
@@ -345,6 +357,8 @@ try {
 
 }
 catch [Exception] {
+    $PSBoundParameters
+    $sessionOptions
     Write-Error "Received Error '$_'"
     Write-Host "<---- Session Output ---->"
     $session.Output | Out-String
