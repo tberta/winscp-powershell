@@ -199,10 +199,11 @@ Function FileTransferProgress {
     if (($Null -ne $script:lastFileName) -and
         ($script:lastFileName -ne $e.FileName))
     {
+        Write-Host "[  $($Script:Command.PadRight(9)) OK ] `t$($Script:lastFileName)"
         if($PSBoundParameters.ContainsKey("Verbose")) {
             Write-Host
         }
-        Write-Host "$(if ($e.Side -eq 'Local') {'[  Upload OK ]'} else {'[ Download OK ]'})`t$($script:lastFileName)"
+        
     }
  
     # Print transfer progress
@@ -366,6 +367,9 @@ try {
         $transferResult = $Session.GetFilesToDirectory($RemotePath, $LocalPath, $Filemask, $deleteSourceFile)
     }
 
+    if ($null -ne $Script:lastFileName) {
+        Write-Host "[  $($Script:Command.PadRight(9)) OK ] `t$($Script:lastFileName)"
+    }
     # Throw error if found
     $transferResult.Check()
     
@@ -375,7 +379,7 @@ try {
     #     Write-Host "[  $Command OK  ]   $($transfer.FileName)"
     # }
     foreach ($failure in $transferResult.Failures) {
-        Write-Host "[ $Command FAIL ]   $($transfer.FileName)"
+        Write-Host "[ $Command FAIL ]  $($transfer.FileName)"
     }
     # }
     if ($($transferResult.IsSuccess)) {
