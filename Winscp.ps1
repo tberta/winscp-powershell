@@ -24,8 +24,8 @@ $sessionURL = "s3://s3.amazonaws.com/$($bucket)/"
 $localPath = "C:\To_upload"
 $remotePath = "incoming"
 $filemask = "*.txt"
-$command = "upload"
-PS> Winscp.ps1 -winscpPath $winscp -sessionURL $sessionURL -localPath $localPath -filemask $filemask -remotePath $remotePath -command $command -password $pass -user $UserName
+$Command = "upload"
+PS> Winscp.ps1 -winscpPath $winscp -sessionURL $sessionURL -localPath $localPath -filemask $filemask -remotePath $remotePath -command $Command -password $pass -user $UserName
 
 .EXAMPLE
 $UserName = "mylogin"
@@ -35,8 +35,8 @@ $bucket = "s3-my-bucketname-001"
 $sessionURL = "s3://$($UserName):$($pass)@s3.amazonaws.com/$($bucket)/"
 $localPath = "C:\To_upload"
 $remotePath = "incoming"
-$command = "upload"
-PS> Winscp.ps1 -winscpPath $winscp -sessionURL $sessionURL -localPath $localPath -filemask $filemask -remotePath $remotePath -command $command -password $pass -user $UserName
+$Command = "upload"
+PS> Winscp.ps1 -winscpPath $winscp -sessionURL $sessionURL -localPath $localPath -filemask $filemask -remotePath $remotePath -command $Command -password $pass -user $UserName
 
 .INPUTS
 
@@ -50,6 +50,7 @@ None. Besides some Console output, Winscp1.ps1 does not generate any output obje
 https://github.com/tberta/winscp-powershell
 
 #>
+[CmdletBinding(SupportsShouldProcess = $False, PositionalBinding = $False)]
 param (
     [ValidateScript( {
             Test-Path -Path $_ -PathType Leaf
@@ -92,7 +93,7 @@ param (
 
     [ValidateSet('download', 'upload')]
     [string] 
-    $command,
+    $Command,
 
     [ValidateSet('sftp', 'ftp', 's3', 'scp', 'webdav')]
     [string]
@@ -135,7 +136,7 @@ catch [Exception] {
     Exit 1
 }
 
-
+#region functions
 Function Get-Cred {
     Param(
         [Parameter(Mandatory)]
@@ -165,6 +166,7 @@ Function Get-Cred {
 }
 
 
+
 Function Get-UserName {
     Param(
         [Parameter(Mandatory)]
@@ -188,37 +190,60 @@ Function Get-UserName {
     return $UserName
 }
 
+
+
+Function FileTransferProgress {
+    Param($e)
+ 
+    # New line for every new file
+    if (($Null -ne $script:lastFileName) -and
+        ($script:lastFileName -ne $e.FileName))
+    {
+        if($PSBoundParameters.ContainsKey("Verbose")) {
+            Write-Host
+        }
+        Write-Host "$(if ($e.Side -eq 'Local') {'[  Upload OK ]'} else {'[ Download OK ]'})`t$($script:lastFileName)"
+    }
+ 
+    # Print transfer progress
+    if($PSBoundParameters.ContainsKey("Verbose")) {
+        Write-Host -NoNewline ("`r{0} ({1:P0})" -f $e.FileName, $e.FileProgress)
+    }
+    # Remember a name of the last file reported
+    $script:lastFileName = $e.FileName
+}
+#endregion functions
+
 $sessionOptions = New-Object WinSCP.SessionOptions
 
-# User or Password may need to be HTML encoded in a sessionURL
-# So for convenience, User and Password value can be passed as arguments
-# [System.Collections.Generic.List[string]] $PSBoundKeys = $PSBoundParameters.Keys
-switch ($PSBoundParameters.Keys) {
+#region argumentsParsing
+[System.Collections.Generic.List[string]] $PSBoundKeys = $PSBoundParameters.Keys
+switch ($PSBoundKeys) {
     
     'CSEntryName' {
-        $sessionOptions.UserName = Get-UserName $CSEntryName
-        $sessionOptions.SecurePassword = Get-Cred $CSEntryName
+        $PSBoundParameters["UserName"] = Get-UserName $CSEntryName
+        $PSBoundParameters["SecurePassword"] = Get-Cred $CSEntryName
     }
     
     'sessionURL' {
-        
+        # Remote Path not supported by WinSCP in sessionURL for  protocol other than s3 and webdav.
+        # Workaround to allow it
+        # if $RemotePath not defined but defined in sessionURL, we get it and define $RemotePath with it
         if (-not $RemotePath) {
             
             [uri] $ParsedURL = $sessionURL
             
             if ($ParsedURL.AbsolutePath -and 
-            ( $ParsedURL.AbsolutePath -ne "/" ) -and
-            ( -not ($parsedURL.Scheme -in ("s3", "webdav")))
+                ( $ParsedURL.AbsolutePath -ne "/" ) -and
+                ( -not ($parsedURL.Scheme -in ("s3", "webdav")))
             ) {
-                # Remote Path not supported in sessionURL for other protocol than s3 and webdav.
-                # Workaround to allow it
-                # $Protocol = $ParsedURL.Scheme
                 $RemotePath = [uri]::UnescapeDataString($ParsedURL.AbsolutePath)
-                $sessionURL = $sessionURL.Substring(0,$sessionURL.LastIndexOf($parsedURL.AbsolutePath))
+                $sessionURL = $sessionURL.Substring(0, $sessionURL.LastIndexOf($parsedURL.AbsolutePath))
             }
         }
         try {
             $sessionOptions.ParseURL($sessionURL)    
+            $PSBoundParameters.Remove("sessionURL") | Out-Null
         }
         catch [Exception] {
             Write-Host "Error while parsing provided sessionURL argument : '$sessionURL'"
@@ -229,12 +254,11 @@ switch ($PSBoundParameters.Keys) {
     
     'Protocol' {
         switch ($Protocol) {
-
-            "sftp"  { $sessionOptions.Protocol = [WinSCP.Protocol]::sftp   ; break }
-            "ftp"   { $sessionOptions.Protocol = [WinSCP.Protocol]::ftp    ; break }
-            "s3"    { $sessionOptions.Protocol = [WinSCP.Protocol]::s3     ; break }
-            "scp"   { $sessionOptions.Protocol = [WinSCP.Protocol]::scp    ; break }
-            "webdav" { $sessionOptions.Protocol = [WinSCP.Protocol]::webdav ; break }
+            "sftp" { $PSBoundParameters["Protocol"] = [WinSCP.Protocol]::sftp   ; break }
+            "ftp" { $PSBoundParameters["Protocol"] = [WinSCP.Protocol]::ftp    ; break }
+            "s3" { $PSBoundParameters["Protocol"] = [WinSCP.Protocol]::s3     ; break }
+            "scp" { $PSBoundParameters["Protocol"] = [WinSCP.Protocol]::scp    ; break }
+            "webdav" { $PSBoundParameters["Protocol"] = [WinSCP.Protocol]::webdav ; break }
             default {     
                 Write-Host "Unknown protocol specified"
                 Write-Host "Exiting..."
@@ -244,111 +268,118 @@ switch ($PSBoundParameters.Keys) {
     }
 
     'SshPrivateKeyPath' {
-        $sessionOptions.SshPrivateKeyPath = $(Resolve-Path -Path $SshPrivateKeyPath | Select-Object -ExpandProperty ProviderPath)
+        $PSBoundParameters["SshPrivateKeyPath"] = $(Resolve-Path -Path $SshPrivateKeyPath | Select-Object -ExpandProperty ProviderPath)
     }
 
     'SecurePrivateKeyCSEntryName' {
-        $sessionOptions.SecurePrivateKeyPassphrase = Get-Cred $SecurePrivateKeyCSEntryName
+        $PSBoundParameters["SecurePrivateKeyPassphrase"] = Get-Cred $SecurePrivateKeyCSEntryName
     }
 
     'FtpMode' {
         if ($FtpMode -eq "Active") {
-            $sessionOptions.FtpMode = [WinSCP.FtpMode]::Active
+            $PSBoundParameters["FtpMode"] = [WinSCP.FtpMode]::Active
         }
         if ($FtpMode -eq "Passive") {
-            $sessionOptions.FtpMode = [WinSCP.FtpMode]::Passive
+            $PSBoundParameters["FtpMode"] = [WinSCP.FtpMode]::Passive
         }
     }
 
     'FtpSecure' {
         if ($FtpSecure -eq "Implicit") {
-            $sessionOptions.FtpSecure = [WinSCP.FtpSecure]::Implicit
+            $PSBoundParameters["FtpSecure"] = [WinSCP.FtpSecure]::Implicit
         }
         if ($FtpSecure -eq "Explicit") {
-            $sessionOptions.FtpSecure = [WinSCP.FtpSecure]::Explicit
+            $PSBoundParameters["FtpSecure"] = [WinSCP.FtpSecure]::Explicit
         }
     }
 
     'IgnoreHostAuthenticityCheck' {
         if ($IgnoreHostAuthenticityCheck.IsPresent) {
-            if ($Protocol -in ("sftp", "scp") -or $sessionOptions.Protocol -in ("sftp", "scp")) {
-                $sessionOptions.GiveUpSecurityAndAcceptAnySshHostKey = $true
+            if ($Protocol -in ("sftp", "scp") -or $sessionOptions.Protocol -in ("sftp", "scp") -or $PSBoundParameters["Protocol"] -in ("sftp", "scp")) {
+                $PSBoundParameters["GiveUpSecurityAndAcceptAnySshHostKey"] = $true
             }         
             if ($FtpSecure -eq "Implicit") {
-                $sessionOptions.GiveUpSecurityAndAcceptAnyTlsHostCertificate = $true
+                $PSBoundParameters["GiveUpSecurityAndAcceptAnyTlsHostCertificate"] = $true
             }
-            # elseif ($FtpSecure -eq "Explicit") {
-            #     $PSBoundParameters["GiveUpSecurityAndAcceptAnySshHostKey"] = $true
-            # }
             elseif ($FtpSecure -eq "Explicit") {
-                $sessionOptions.GiveUpSecurityAndAcceptAnyTlsHostCertificate = $true
+                $PSBoundParameters["GiveUpSecurityAndAcceptAnyTlsHostCertificate"] = $true
             }
         }
     }
 }
-# if ($Debug.IsPresent) {
-    $sessionOptions
-# }
-# Setup session options
-# try {
-#     $sessionOptionObjectProperties = $sessionOptions |
-#     Get-Member -MemberType Property |
-#     Select-Object -ExpandProperty Name
-#     $keys = ($PSBoundParameters.Keys).Where( {
-#             $_ -in $sessionOptionObjectProperties
-#         })
 
-#     foreach ($key in $keys) {
-#         Write-Debug -Message ("Adding {0} value {1}" -f $key, $PSBoundParameters[$key])
-#         $sessionOptions.$key = $PSBoundParameters[$key]
-#     }
-# }
-# catch {
-#     $PSCmdlet.ThrowTerminatingError(
-#         $_
-#     )
-# }
+if ($PSBoundParameters.ContainsKey("Debug")) {
+    $DebugPreference = "Continue"
+    $PSBoundParameters | Out-String
+}
+# Setup session options
+try {
+    $sessionOptionObjectProperties = $sessionOptions | 
+        Get-Member -MemberType Property | 
+        Select-Object -ExpandProperty Name
+    $keys = ($PSBoundParameters.Keys).Where( {
+            $_ -in $sessionOptionObjectProperties
+        })
+    foreach ($key in $keys) {
+        Write-Debug -Message ("Adding {0} value {1}" -f $key, $PSBoundParameters[$key])
+        $sessionOptions.$key = $PSBoundParameters[$key]
+    }
+}
+catch {
+    $PSCmdlet.ThrowTerminatingError(
+        $_
+    )
+}
+
+if ($PSBoundParameters.ContainsKey("Debug")) {
+    $sessionOptions | Select-Object -ExcludeProperty "Password" -Property "*"
+}
+#endregion argumentsParsing
 
 $returnCode = 0
     
-$session = New-Object WinSCP.Session
+$Session = New-Object WinSCP.Session
 
 try {
+    $Session.add_FileTransferProgress({ FileTransferProgress($_) } )
+    
     # Connect
-    $session.Open($sessionOptions)
-
-    if ($command -eq "upload") {
+    $Session.Open($sessionOptions)
+    $Command = $Command.ToUpper()
+    if ($Command -eq "UPLOAD") {
         # Upload files
-        $operationMessage = $command.ToUpper() + " Job from $LocalPath to $RemotePath Results:"
+        $operationMessage = $Command + " Job from $LocalPath to $RemotePath Results:"
+        Write-Host $operationMessage
         $transferOptions = New-Object WinSCP.TransferOptions
         $transferOptions.TransferMode = [WinSCP.TransferMode]::Binary
-        #$transferResult = $session.PutFiles($localPath,($remotePath + $filemask), $deleteSourceFile , $transferOptions)
-        $transferResult = $session.PutFilestoDirectory($localPath, $RemotePath, $Filemask, $deleteSourceFile)
+        #$transferResult = $Session.PutFiles($localPath,($remotePath + $filemask), $deleteSourceFile , $transferOptions)
+        $transferResult = $Session.PutFilestoDirectory($localPath, $RemotePath, $Filemask, $deleteSourceFile)
     }
 
-    if ($command -eq "download") {
-        $operationMessage = $command.ToUpper() + " Job from $RemotePath to $LocalPath Results:"
+    if ($Command -eq "DOWNLOAD") {
+        $operationMessage = $Command + " Job from $RemotePath to $LocalPath Results:"
+        Write-Host $operationMessage
         # Download the file and throw on any error
-        #$sessionResult = $session.GetFiles(($remotePath + $fileName),($localPath + $filemask))
+        #$sessionResult = $Session.GetFiles(($remotePath + $fileName),($localPath + $filemask))
         $transferOptions = New-Object WinSCP.TransferOptions
         $transferOptions.TransferMode = [WinSCP.TransferMode]::Binary
-        $transferResult = $session.GetFilesToDirectory($RemotePath, $LocalPath, $Filemask, $deleteSourceFile)
+        $transferResult = $Session.GetFilesToDirectory($RemotePath, $LocalPath, $Filemask, $deleteSourceFile)
     }
 
     # Throw error if found
     $transferResult.Check()
     
     # if ($VerbosePreference) {
-        Write-Host $operationMessage
-        foreach ($transfer in $transferResult.Transfers) {
-            Write-Host "[  $command OK  ]   $($transfer.FileName)"
-        }
-        foreach ($failure in $transferResult.Failures) {
-            Write-Host "[ $command FAIL ]   $($transfer.FileName)"
-        }
+    #     Write-Host $operationMessage
+    # foreach ($transfer in $transferResult.Transfers) {
+    #     Write-Host "[  $Command OK  ]   $($transfer.FileName)"
+    # }
+    foreach ($failure in $transferResult.Failures) {
+        Write-Host "[ $Command FAIL ]   $($transfer.FileName)"
+    }
     # }
     if ($($transferResult.IsSuccess)) {
-        Write-Host "$command job ended successfully"
+        Write-Host "$Command job ended successfully"
     }
     Write-Host "Files transferred successfully : $($transferResult.Transfers.count)"
     if ($($transferResult.Failures.Count)) {
@@ -361,12 +392,12 @@ catch [Exception] {
     $sessionOptions
     Write-Error "Received Error '$_'"
     Write-Host "<---- Session Output ---->"
-    $session.Output | Out-String
+    $Session.Output | Out-String
     Write-Host "^---- Session Output ----^"
     $returnCode = 7
 }    
 finally {
     # Disconnect, clean up
-    $session.Dispose()
+    $Session.Dispose()
     exit $returnCode
 }    
