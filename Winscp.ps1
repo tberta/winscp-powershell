@@ -258,7 +258,7 @@ switch ($PSBoundKeys) {
         }
         try {
             $sessionOptions.ParseURL($sessionURL)    
-            $PSBoundParameters.Remove("sessionURL") | Out-Null
+            # $PSBoundParameters.Remove("sessionURL") | Out-Null
         }
         catch [Exception] {
             Write-Host "Error while parsing provided sessionURL argument : '$sessionURL'"
@@ -360,6 +360,9 @@ try {
     $session.add_FileTransferred( { FileTransferred($_) } )
     # Connect
     $Session.Open($sessionOptions)
+	if (-not $Session.Opened -eq $true) {
+		throw [System.Management.Automation.RuntimeException] "Can't open connection to remote server.`r`n" + $session.Output
+	}
     $Command = $Command.ToUpper()
     if ($Command -eq "UPLOAD") {
         # Upload files
@@ -418,7 +421,7 @@ catch [Exception] {
     $sessionOptions
     Write-Error "Received Error '$_'"
     Write-Host "<---- Session Output ---->"
-    $Session.Output | Out-String
+	$Session.Output | Out-String | Write-Host
     Write-Host "^---- Session Output ----^"
     $returnCode = 1
 }    
