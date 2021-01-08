@@ -213,6 +213,20 @@ Function FileTransferProgress {
     # Remember a name of the last file reported
     $script:lastFileName = $e.FileName
 }
+
+
+Function FileTransferred {
+    Param($e)
+
+    if ($null -eq $e.Error)
+    {
+        Write-Host "[  $($Script:Command.PadRight(9)) OK ] `t$($e.FileName)"
+    }
+    else
+    {
+        Write-Host "[  $($Script:Command.PadRight(9)) FAILED ] `t$($e.FileName)"
+    }
+}
 #endregion functions
 
 $sessionOptions = New-Object WinSCP.SessionOptions
@@ -342,8 +356,8 @@ $returnCode = 0
 $Session = New-Object WinSCP.Session
 
 try {
-    $Session.add_FileTransferProgress({ FileTransferProgress($_) } )
-    
+    # $Session.add_FileTransferProgress({ FileTransferProgress($_) } )
+    $session.add_FileTransferred( { FileTransferred($_) } )
     # Connect
     $Session.Open($sessionOptions)
     $Command = $Command.ToUpper()
@@ -370,26 +384,34 @@ try {
     if ($null -ne $Script:lastFileName) {
         Write-Host "[  $($Script:Command.PadRight(9)) OK ] `t$($Script:lastFileName)"
     }
-    # Throw error if found
-    $transferResult.Check()
-    
     # if ($VerbosePreference) {
-    #     Write-Host $operationMessage
-    # foreach ($transfer in $transferResult.Transfers) {
-    #     Write-Host "[  $Command OK  ]   $($transfer.FileName)"
-    # }
-    foreach ($failure in $transferResult.Failures) {
-        Write-Host "[ $Command FAIL ]  $($transfer.FileName)"
-    }
-    # }
-    if ($($transferResult.IsSuccess)) {
+        #     Write-Host $operationMessage
+        # foreach ($transfer in $transferResult.Transfers) {
+            #     Write-Host "[  $Command OK  ]   $($transfer.FileName)"
+            # }
+            foreach ($failure in $transferResult.Failures) {
+                Write-Host "[ $Command FAIL ]  $($transfer.FileName)"
+            }
+            # }
+            if ($($transferResult.IsSuccess)) {
         Write-Host "$Command job ended successfully"
     }
     Write-Host "Files transferred successfully : $($transferResult.Transfers.count)"
     if ($($transferResult.Failures.Count)) {
         Write-Host "Files not transferred : $($transferResult.Failures.Count)"
     }
-
+    # Throw error if found
+    $transferResult.Check()
+    
+    if ($transferResult.IsSuccess -eq $true ) {
+        if ($transferResult.Transfers.Count -gt 0) {
+            $returnCode = 0
+        } else {
+            $returnCode = 20
+        }
+    } else {
+        $returnCode = 1
+    }
 }
 catch [Exception] {
     $PSBoundParameters
@@ -398,7 +420,7 @@ catch [Exception] {
     Write-Host "<---- Session Output ---->"
     $Session.Output | Out-String
     Write-Host "^---- Session Output ----^"
-    $returnCode = 7
+    $returnCode = 1
 }    
 finally {
     # Disconnect, clean up
