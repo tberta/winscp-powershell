@@ -37,25 +37,22 @@ switch($size) {
 # $winSCPPath = 
 
 
-# .\Winscp.ps1 -sessionURL "ftp://moninvite@localhost:21/" -CSEntryName test -Filemask "*.tst" -LocalPath 'C:\tools\Out' -command download -DEbug
-# rc = 0
-# .\Winscp.ps1 -sessionURL "sftp://moninvite@localhost:22/C:/Users/moninvite" -CSEntryName test -Filemask "*.tmp" -LocalPath 'C:\tools\Out' -command upload
-# rc = 7
 # .\Winscp.ps1 -sessionURL "ftp://moninvite@localhost:990/In" -CSEntryName test -Filemask "*" -LocalPath 'C:\tools\Out' -command upload -FtpSecure Implicit
 # rc = 7
 # .\Winscp.ps1 -sessionURL "ftp://moninvite@localhost:990/In" -CSEntryName test -Filemask "*" -LocalPath 'C:\tools\Out' -command upload -FtpSecure Implicit -IgnoreHostAuthenticityCheck
 # rc = 0
-# .\Winscp.ps1 -sessionURL "ftp://moninvite@localhost/In" -CSEntryName test -Filemask "*" -LocalPath 'C:\tools\Out' -command download -FtpSecure Explicit -IgnoreHostAuthenticityCheck
-# rc = 0
 # .\Winscp.ps1 -sessionURL "sftp://moninvite@localhost:/In" -CSEntryName test -Filemask "*" -LocalPath 'C:\tools\Out' -command download -FtpSecure Explicit -IgnoreHostAuthenticityCheck
 
-$testName = "UPLOAD - SFTP - SMALL"
+
+$testName = "UPLOAD - FTP - SMALL"
 $expected = 0
 
-$sessionURL = "sftp://nxy-dev@stc.qua.nexity.net:8022/TEST/" 
-$CSEntryName = "nxy-dev"
-$LocalPath = "D:\Tests\1-VariousSize"
+$sessionURL = "ftp://moninvite@localhost:21/" 
+$Filemask = "*.tst"
+$CSEntryName = "test"
+$LocalPath = "D:\Tests\Junk\*"
 $Command = "upload"
+$TransferMode = "Automatic"
 $testArgs = @{
 	testName = $testName
 	argList  = @{
@@ -64,6 +61,7 @@ $testArgs = @{
 		Filemask        = $Filemask
 		LocalPath       = $LocalPath
 		command			= $command
+		TransferMode	= $TransferMode
 		IgnoreHostAuthenticityCheck = $true
 	}
 	expected = $expected
@@ -71,193 +69,42 @@ $testArgs = @{
 $r = runTest $testArgs
 $results += [PSCustomObject] $r
 
-
-$testName = "UPLOAD - SFTP - RemotePath"
+$testName = "UPLOAD - SFTP - SMALL - SSHKeyFile Auth"
 $expected = 0
 
-$sessionURL = "sftp://nxy-dev@stc.qua.nexity.net:8022/" 
-$RemotePath = "TEST"
-$CSEntryName = "nxy-dev"
-$Filemask = "*small*.tst"
-$LocalPath = "D:\Tests\1-VariousSize"
-$Command = "upload"
-$testArgs = @{
-	testName = $testName
-	argList  = @{
-		sessionURL      = $sessionURL
-		CSEntryName     = $CSEntryName
-		Filemask        = $Filemask
-		LocalPath       = $LocalPath
-		command			= $command
-		IgnoreHostAuthenticityCheck = $true
-	}
-	expected = $expected
-}
-$r = runTest $testArgs
-$results += [PSCustomObject] $r
-
-
-$testName = "DOWNLOAD - SFTP"
-$expected = 0
-
-$sessionURL = "sftp://nxy-dev@stc.qua.nexity.net:8022/TEST/" 
-$CSEntryName = "nxy-dev"
-$Filemask = "*small*.tst"
+$sessionURL = "sftp://moninvite@localhost:22/C:/Users/moninvite" 
+$Filemask = "*.tst"
+$SecurePrivateKeyCSEntryName = "sftp-localhost-key"
+$SshPrivateKeyPath = "C:\Users\tbert\.ssh\moninvite.ppk"
 $LocalPath = "D:\Tests\Junk"
+$Command = "upload"
+$testArgs = @{
+	testName = $testName
+	argList  = @{
+		sessionURL      = $sessionURL
+		Filemask        = $Filemask
+		LocalPath       = $LocalPath
+		command			= $command
+		SecurePrivateKeyCSEntryName = $SecurePrivateKeyCSEntryName
+		SshPrivateKeyPath = $SshPrivateKeyPath
+		IgnoreHostAuthenticityCheck = $true
+	}
+	expected = $expected
+}
+$r = runTest $testArgs
+$results += [PSCustomObject] $r
+
+
+$testName = "DOWNLOAD - FTP - SMALL"
+$expected = 0
+
+$sessionURL = "ftp://moninvite@localhost/In" 
+$Filemask = "*"
+$CSEntryName = "test"
+$LocalPath = "D:\Tests\Out"
 $Command = "download"
-$testArgs = @{
-	testName = $testName
-	argList  = @{
-		sessionURL      = $sessionURL
-		CSEntryName     = $CSEntryName
-		Filemask        = $Filemask
-		LocalPath       = $LocalPath
-		command			= $command
-		
-		IgnoreHostAuthenticityCheck = $true
-		DeleteSourceFile = $true
-	}
-	expected = $expected
-}
-$r = runTest $testArgs
-$results += [PSCustomObject] $r
-
-$testName = "DOWNLOAD - SFTP - No Files"
-$expected = 20
-
-$sessionURL = "sftp://nxy-dev@stc.qua.nexity.net:8022/TEST/" 
-$CSEntryName = "nxy-dev"
-$Filemask = "*nofiles*.tst"
-$LocalPath = "D:\Tests\Junk"
-$Command = "download"
-$IgnoreHostAuthenticityCheck = $true
-$testArgs = @{
-	testName = $testName
-	argList  = @{
-		sessionURL      = $sessionURL
-		CSEntryName     = $CSEntryName
-		Filemask        = $Filemask
-		LocalPath       = $LocalPath
-		Command			= $command
-		
-		IgnoreHostAuthenticityCheck = $true
-	}
-	expected = $expected
-}
-$r = runTest $testArgs
-$results += [PSCustomObject] $r
-
-$testName = "UPLOAD - SFTP - No Files"
-$expected = 20
-
-$sessionURL = "sftp://nxy-dev@stc.qua.nexity.net:8022/TEST/" 
-$CSEntryName = "nxy-dev"
-$Filemask = "*nofiles*.tst"
-$LocalPath = "D:\Tests\Junk"
-$Command = "upload"
-$IgnoreHostAuthenticityCheck = $true
-$testArgs = @{
-	testName = $testName
-	argList  = @{
-		sessionURL      = $sessionURL
-		CSEntryName     = $CSEntryName
-		Filemask        = $Filemask
-		LocalPath       = $LocalPath
-		Command			= $command
-		
-		IgnoreHostAuthenticityCheck = $true
-	}
-	expected = $expected
-}
-$r = runTest $testArgs
-$results += [PSCustomObject] $r
-
-
-$testName = "UPLOAD - SFTP - Get UserName from Get-Cred"
-$expected = 20
-
-$sessionURL = "sftp://stc.qua.nexity.net:8022/TEST/" 
-$CSEntryName = "nxy-dev"
-$Filemask = "*nofiles*.tst"
-$LocalPath = "D:\Tests\Junk"
-$Command = "upload"
-$IgnoreHostAuthenticityCheck = $true
-$testArgs = @{
-	testName = $testName
-	argList  = @{
-		sessionURL      = $sessionURL
-		CSEntryName     = $CSEntryName
-		Filemask        = $Filemask
-		LocalPath       = $LocalPath
-		Command			= $command
-		
-		IgnoreHostAuthenticityCheck = $true
-	}
-	expected = $expected
-}
-$r = runTest $testArgs
-$results += [PSCustomObject] $r
-
-
-$testName = "UPLOAD - SFTP - Bad Port"
-$expected = 1
-
-$sessionURL = "sftp://stc.qua.nexity.net:8888/TEST/" 
-$CSEntryName = "nxy-dev"
-$Filemask = "*nofiles*.tst"
-$LocalPath = "D:\Tests\Junk"
-$Command = "upload"
-$IgnoreHostAuthenticityCheck = $true
-$testArgs = @{
-	testName = $testName
-	argList  = @{
-		sessionURL      = $sessionURL
-		CSEntryName     = $CSEntryName
-		Filemask        = $Filemask
-		LocalPath       = $LocalPath
-		Command			= $command
-		
-		IgnoreHostAuthenticityCheck = $true
-	}
-	expected = $expected
-}
-$r = runTest $testArgs
-$results += [PSCustomObject] $r
-
-$testName = "UPLOAD - FTP Unsecure"
-$expected = 0
-
-$sessionURL = "ftp://stc.qua.nexity.net:2021/TEST/" 
-$CSEntryName = "nxy-dev"
-$Filemask = "*small*.tst"
-$LocalPath = "D:\Tests\1-VariousSize"
-$Command = "upload"
-$testArgs = @{
-	testName = $testName
-	argList  = @{
-		sessionURL      = $sessionURL
-		CSEntryName     = $CSEntryName
-		Filemask        = $Filemask
-		LocalPath       = $LocalPath
-		Command			= $command
-		IgnoreHostAuthenticityCheck = $true	
-	}
-	expected = $expected
-}
-$r = runTest $testArgs
-$results += [PSCustomObject] $r
-
-## Test Case
-
-$testName = "UPLOAD - FTPS Explicit - Ignore"
-$expected = 0
-
-$sessionURL = "ftp://stc.qua.nexity.net:2021/TEST/" 
-$CSEntryName = "nxy-dev"
-$Filemask = "*small*.tst"
-$LocalPath = "D:\Tests\1-VariousSize"
-$Command = "upload"
 $FtpSecure = "Explicit"
+$TransferMode = "Automatic"
 $testArgs = @{
 	testName = $testName
 	argList  = @{
@@ -265,14 +112,243 @@ $testArgs = @{
 		CSEntryName     = $CSEntryName
 		Filemask        = $Filemask
 		LocalPath       = $LocalPath
-		Command			= $command
-		IgnoreHostAuthenticityCheck = $true	
-		FtpSecure		  = $FtpSecure
+		command			= $command
+		FtpSecure		= $FtpSecure
+		TransferMode	= $TransferMode
+		IgnoreHostAuthenticityCheck = $true
+		Debug			= $true
 	}
 	expected = $expected
 }
 $r = runTest $testArgs
 $results += [PSCustomObject] $r
+
+
+
+# $testName = "UPLOAD - SFTP - SMALL"
+# $expected = 0
+
+# $sessionURL = "sftp://nxy-dev@stc.qua.nexity.net:8022/TEST/" 
+# $CSEntryName = "nxy-dev"
+# $LocalPath = "D:\Tests\1-VariousSize"
+# $Command = "upload"
+# $testArgs = @{
+# 	testName = $testName
+# 	argList  = @{
+# 		sessionURL      = $sessionURL
+# 		CSEntryName     = $CSEntryName
+# 		Filemask        = $Filemask
+# 		LocalPath       = $LocalPath
+# 		command			= $command
+# 		IgnoreHostAuthenticityCheck = $true
+# 	}
+# 	expected = $expected
+# }
+# $r = runTest $testArgs
+# $results += [PSCustomObject] $r
+
+
+# $testName = "UPLOAD - SFTP - RemotePath"
+# $expected = 0
+
+# $sessionURL = "sftp://nxy-dev@stc.qua.nexity.net:8022/" 
+# $RemotePath = "TEST"
+# $CSEntryName = "nxy-dev"
+# $Filemask = "*small*.tst"
+# $LocalPath = "D:\Tests\1-VariousSize"
+# $Command = "upload"
+# $testArgs = @{
+# 	testName = $testName
+# 	argList  = @{
+# 		sessionURL      = $sessionURL
+# 		CSEntryName     = $CSEntryName
+# 		Filemask        = $Filemask
+# 		LocalPath       = $LocalPath
+# 		command			= $command
+# 		IgnoreHostAuthenticityCheck = $true
+# 	}
+# 	expected = $expected
+# }
+# $r = runTest $testArgs
+# $results += [PSCustomObject] $r
+
+
+# $testName = "DOWNLOAD - SFTP"
+# $expected = 0
+
+# $sessionURL = "sftp://nxy-dev@stc.qua.nexity.net:8022/TEST/" 
+# $CSEntryName = "nxy-dev"
+# $Filemask = "*small*.tst"
+# $LocalPath = "D:\Tests\Junk"
+# $Command = "download"
+# $testArgs = @{
+# 	testName = $testName
+# 	argList  = @{
+# 		sessionURL      = $sessionURL
+# 		CSEntryName     = $CSEntryName
+# 		Filemask        = $Filemask
+# 		LocalPath       = $LocalPath
+# 		command			= $command
+		
+# 		IgnoreHostAuthenticityCheck = $true
+# 		DeleteSourceFile = $true
+# 	}
+# 	expected = $expected
+# }
+# $r = runTest $testArgs
+# $results += [PSCustomObject] $r
+
+# $testName = "DOWNLOAD - SFTP - No Files"
+# $expected = 20
+
+# $sessionURL = "sftp://nxy-dev@stc.qua.nexity.net:8022/TEST/" 
+# $CSEntryName = "nxy-dev"
+# $Filemask = "*nofiles*.tst"
+# $LocalPath = "D:\Tests\Junk"
+# $Command = "download"
+# $IgnoreHostAuthenticityCheck = $true
+# $testArgs = @{
+# 	testName = $testName
+# 	argList  = @{
+# 		sessionURL      = $sessionURL
+# 		CSEntryName     = $CSEntryName
+# 		Filemask        = $Filemask
+# 		LocalPath       = $LocalPath
+# 		Command			= $command
+		
+# 		IgnoreHostAuthenticityCheck = $true
+# 	}
+# 	expected = $expected
+# }
+# $r = runTest $testArgs
+# $results += [PSCustomObject] $r
+
+# $testName = "UPLOAD - SFTP - No Files"
+# $expected = 20
+
+# $sessionURL = "sftp://nxy-dev@stc.qua.nexity.net:8022/TEST/" 
+# $CSEntryName = "nxy-dev"
+# $Filemask = "*nofiles*.tst"
+# $LocalPath = "D:\Tests\Junk"
+# $Command = "upload"
+# $IgnoreHostAuthenticityCheck = $true
+# $testArgs = @{
+# 	testName = $testName
+# 	argList  = @{
+# 		sessionURL      = $sessionURL
+# 		CSEntryName     = $CSEntryName
+# 		Filemask        = $Filemask
+# 		LocalPath       = $LocalPath
+# 		Command			= $command
+		
+# 		IgnoreHostAuthenticityCheck = $true
+# 	}
+# 	expected = $expected
+# }
+# $r = runTest $testArgs
+# $results += [PSCustomObject] $r
+
+
+# $testName = "UPLOAD - SFTP - Get UserName from Get-Cred"
+# $expected = 20
+
+# $sessionURL = "sftp://stc.qua.nexity.net:8022/TEST/" 
+# $CSEntryName = "nxy-dev"
+# $Filemask = "*nofiles*.tst"
+# $LocalPath = "D:\Tests\Junk"
+# $Command = "upload"
+# $IgnoreHostAuthenticityCheck = $true
+# $testArgs = @{
+# 	testName = $testName
+# 	argList  = @{
+# 		sessionURL      = $sessionURL
+# 		CSEntryName     = $CSEntryName
+# 		Filemask        = $Filemask
+# 		LocalPath       = $LocalPath
+# 		Command			= $command
+		
+# 		IgnoreHostAuthenticityCheck = $true
+# 	}
+# 	expected = $expected
+# }
+# $r = runTest $testArgs
+# $results += [PSCustomObject] $r
+
+
+# $testName = "UPLOAD - SFTP - Bad Port"
+# $expected = 1
+
+# $sessionURL = "sftp://stc.qua.nexity.net:8888/TEST/" 
+# $CSEntryName = "nxy-dev"
+# $Filemask = "*nofiles*.tst"
+# $LocalPath = "D:\Tests\Junk"
+# $Command = "upload"
+# $IgnoreHostAuthenticityCheck = $true
+# $testArgs = @{
+# 	testName = $testName
+# 	argList  = @{
+# 		sessionURL      = $sessionURL
+# 		CSEntryName     = $CSEntryName
+# 		Filemask        = $Filemask
+# 		LocalPath       = $LocalPath
+# 		Command			= $command
+		
+# 		IgnoreHostAuthenticityCheck = $true
+# 	}
+# 	expected = $expected
+# }
+# $r = runTest $testArgs
+# $results += [PSCustomObject] $r
+
+# $testName = "UPLOAD - FTP Unsecure"
+# $expected = 0
+
+# $sessionURL = "ftp://stc.qua.nexity.net:2021/TEST/" 
+# $CSEntryName = "nxy-dev"
+# $Filemask = "*small*.tst"
+# $LocalPath = "D:\Tests\1-VariousSize"
+# $Command = "upload"
+# $testArgs = @{
+# 	testName = $testName
+# 	argList  = @{
+# 		sessionURL      = $sessionURL
+# 		CSEntryName     = $CSEntryName
+# 		Filemask        = $Filemask
+# 		LocalPath       = $LocalPath
+# 		Command			= $command
+# 		IgnoreHostAuthenticityCheck = $true	
+# 	}
+# 	expected = $expected
+# }
+# $r = runTest $testArgs
+# $results += [PSCustomObject] $r
+
+# ## Test Case
+
+# $testName = "UPLOAD - FTPS Explicit - Ignore"
+# $expected = 0
+
+# $sessionURL = "ftp://stc.qua.nexity.net:2021/TEST/" 
+# $CSEntryName = "nxy-dev"
+# $Filemask = "*small*.tst"
+# $LocalPath = "D:\Tests\1-VariousSize"
+# $Command = "upload"
+# $FtpSecure = "Explicit"
+# $testArgs = @{
+# 	testName = $testName
+# 	argList  = @{
+# 		sessionURL      = $sessionURL
+# 		CSEntryName     = $CSEntryName
+# 		Filemask        = $Filemask
+# 		LocalPath       = $LocalPath
+# 		Command			= $command
+# 		IgnoreHostAuthenticityCheck = $true	
+# 		FtpSecure		  = $FtpSecure
+# 	}
+# 	expected = $expected
+# }
+# $r = runTest $testArgs
+# $results += [PSCustomObject] $r
 
 # End
 
