@@ -218,8 +218,7 @@ Function Get-Cred {
     )
 
     if (-not (Get-Module -ListAvailable -Name CredentialStore)) {
-        throw [System.Management.Automation.RuntimeException] "Module CredentialStore not present.`r`n" +
-        "Please install it first"
+        throw [System.Management.Automation.RuntimeException] "Module CredentialStore not present.`r`nPlease install it first"
         Exit 3
     }
     try {
@@ -227,11 +226,11 @@ Function Get-Cred {
         [SecureString] $Password = Get-CsPassword -Name $EntryName -ErrorAction Stop
     }
     catch {
-        throw [System.Management.Automation.RuntimeException] "Entry '${_}' does not exist.`r`n" +
+        throw [System.Management.Automation.RuntimeException] ("Entry '${_}' does not exist.`r`n" +
         "Please set it first with :`r`n" + 
         "  Import-Module CredentialStore`r`n" +
         "  Set-CsEntry -Name $EntryName`r`n" +
-        "Can't continue. Exiting."
+        "Can't continue. Exiting.")
         Exit 3
     }
     
@@ -248,8 +247,8 @@ Function Get-UserName {
     )
 
     if (-not (Get-Module -ListAvailable -Name CredentialStore)) {
-        throw [System.Management.Automation.RuntimeException] "Module CredentialStore not present.`r`n" +
-        "Please install it first"
+        throw [System.Management.Automation.RuntimeException] ("Module CredentialStore not present.`r`n" +
+        "Please install it first")
         Exit 3
     }
     try {
@@ -257,7 +256,7 @@ Function Get-UserName {
         $UserName = (Get-CsCredential -Name $EntryName -ErrorAction Stop).UserName
     }
     catch {
-        throw "Error $_`r`n" + $_.Exception.Message
+        throw ("Error $_`r`n" + $_.Exception.Message)
     }
     
     return $UserName
@@ -502,6 +501,13 @@ try {
 		Write-Debug "Using Advanced $command function"
 	} else {
 		$AdvancedFunction = $false
+		if (-not $Include) {
+			if ($Command -eq "UPLOAD" -and (Test-Path -Path $LocalPath -PathType Container)) {
+				Throw "-Include switch is missing from commandline arguments"
+			} else {
+				Write-Warning "-Include switch is missing from commandline arguments"
+			}
+		}
 	}
 	
 	if ($Command -eq "UPLOAD") {
@@ -538,10 +544,11 @@ try {
 			# Download the file and throw on any error
 			$TransferResult = $Session.GetFiles($RemotePathValue, $LocalPath, $DeleteSourceFile, $TransferOptions)
 		} else {
+			$RemotePathValue = $RemotePath
 			$operationMessage = $Command + " '{0}' from '{1}' to '{2}' Results:" -f $Include, $RemotePathValue, $LocalPath
 			Write-Host $operationMessage
 			
-			$TransferResult = $Session.GetFilesToDirectory($RemotePath, $LocalPath, $Include, $DeleteSourceFile)
+			$TransferResult = $Session.GetFilesToDirectory($RemotePathValue, $LocalPath, $Include, $DeleteSourceFile)
 		}
     }
 
