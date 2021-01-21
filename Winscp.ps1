@@ -10,7 +10,7 @@ Protocols supported by WinSCP : SFTP / SCP / S3 / FTP / FTPS / WebDAV
 Path to WinSCPnet.dll matching the .NET Framework Version
 
 .PARAMETER SessionURL
-SessionURL are one string containing several or all information needed for remote site connection
+SessionURL are one string containing several or all information needed for remote site connection.
 SessionURL Syntax:
 <protocol> :// [ <username> [ : <password> ] [ ; <advanced> ] @ ] <host> [ : <port> ] / [ <destination directory> / ]
 SessionURL Example 
@@ -20,7 +20,7 @@ s3://s3.eu-west-1.amazonaws.com/my-test-bucket/
 Path to folder or to individual file
 
 .PARAMETER RemotePath
-Path to remote folder or to 
+Path to remote folder or to individual file
 
 .PARAMETER HostName
 Remote server hostname
@@ -29,7 +29,7 @@ Remote server hostname
 Remote server port number
 
 .PARAMETER UserName
-Login for authentication on remote server
+Login for authentication on remote server.
 
 .PARAMETER SecurePassword
 Password as SecureString for authentication on remote server 
@@ -38,7 +38,8 @@ Password as SecureString for authentication on remote server
 CredentialStore Entry Name to get the Login and Password securely
 
 .PARAMETER Include
-Filename or wildcard expression to select files.
+Filename or wildcard expression to select files. Wildcard characters here are * and ? only.
+To use a full syntax of file masks, use a -FileMask argument
 
 .PARAMETER Filemask
 FileMask is a touchy option allowing to select or exclude files or folder to download or upload.
@@ -98,11 +99,11 @@ Add this switch if source file should be deleted after transfer successful
 .\Winscp.ps1 -protocol sftp -Hostname remotehost.com -Port 2222 -User mylogin -pass <SecureString> -remotePath "/incoming" -localPath "C:\to_send" -filemask "*"
 
 .EXAMPLE
-.\Winscp.ps1 -WinscpPath "C:\Program Files (x86)\WinSCP\WinSCPnet.dll" -SessionURL "s3://s3.amazonaws.com/s3-my-bucketname-001/incoming" -localPath "C:\To_upload" -filemask "*.txt"  -command "upload"  -user "mylogin"
+.\Winscp.ps1 -WinscpPath "C:\Program Files (x86)\WinSCP\WinSCPnet.dll" -SessionURL "s3://s3.amazonaws.com/s3-my-bucketname-001/incoming" -localPath "C:\To_upload" -filemask "*.txt" -command "upload" -user "mylogin"
 
 .Example
 Using SessionURL with new filename on destination : 
-.\Winscp.ps1 -SessionURL "s3://s3.amazonaws.com/s3-my-bucketname-001/incoming/" -LocalPath "C:\To_upload\myfile.tst" -RemotePath "NewName.tst"  -command "upload"  -CsEntry "mylogin"
+.\Winscp.ps1 -SessionURL "s3://s3.amazonaws.com/s3-my-bucketname-001/incoming/" -LocalPath "C:\To_upload\myfile.tst" -RemotePath "NewName.tst" -command "upload" -CsEntry "mylogin"
 
 .INPUTS
 None. You cannot pipe objects to Winscp1.ps1.
@@ -271,7 +272,7 @@ Function FileTransferProgress {
     if (($Null -ne $script:lastFileName) -and
         ($script:lastFileName -ne $e.FileName))
     {
-        Write-Host "[  $($Script:Command) OK ] $($Script:lastFileName)"
+        Write-Host "[ $($Script:Command) OK ] $($Script:lastFileName)"
         if($PSBoundParameters.ContainsKey("Verbose")) {
             Write-Host
         }
@@ -292,11 +293,11 @@ Function FileTransferred {
 
     if ($null -eq $e.Error)
     {
-        Write-Host "[  $($Script:Command) OK ] $($e.FileName) to $($e.Destination)"
+        Write-Host -NoNewline "[ $($Script:Command) OK ] $($e.FileName) to $($e.Destination)`r`n"
     }
     else
     {
-        Write-Host "[  $($Script:Command) FAILED ] $($e.FileName) to $($e.Destination)"
+        Write-Host -NoNewline "[ $($Script:Command) FAILED ] $($e.FileName) to $($e.Destination)`r`n"
     }
 }
 #endregion functions
@@ -358,7 +359,7 @@ switch ($PSBoundKeys) {
             $Protocol = $SessionOptions.Protocol
         }
         catch [Exception] {
-            Write-Host "Error while parsing provided sessionURL argument : '$sessionURL'"
+            Write-Host -NoNewline "Error while parsing provided sessionURL argument : '$sessionURL'`r`n"
             Write-Host $_.Exception.Message
             Exit 3
         }
@@ -372,8 +373,8 @@ switch ($PSBoundKeys) {
             "scp" { $PSBoundParameters["Protocol"] = [WinSCP.Protocol]::scp    ; break }
             "webdav" { $PSBoundParameters["Protocol"] = [WinSCP.Protocol]::webdav ; break }
             default {     
-                Write-Host "Unknown protocol specified"
-                Write-Host "Exiting..."
+                Write-Host -NoNewline "Unknown protocol specified`r`n"
+                Write-Host -NoNewline "Exiting...`r`n"
                 Exit 4
             }
         }
@@ -445,7 +446,7 @@ try {
             $_ -in $sessionOptionObjectProperties
         })
     foreach ($key in $keys) {
-        Write-Debug -Message ("Adding {0} value {1}" -f $key, $PSBoundParameters[$key])
+        Write-Debug -Message ("Adding {0} value {1} to SessionOptions" -f $key, $PSBoundParameters[$key])
         $SessionOptions.$key = $PSBoundParameters[$key]
     }
 }
@@ -465,7 +466,7 @@ try {
         $_ -in $transferOptionsObjectProperties
     })
     foreach ($key in $keys) {
-        Write-Debug -Message ("Adding {0} value {1}" -f $key, $PSBoundParameters[$key])
+        Write-Debug -Message ("Adding {0} value {1} to TransferOptions" -f $key, $PSBoundParameters[$key])
         $TransferOptions.$key = $PSBoundParameters[$key]
     }
 }
@@ -479,8 +480,7 @@ if ($PSBoundParameters.ContainsKey("Debug")) {
 
 #endregion argumentsParsing
 
-$returnCode = 0
-    
+$returnCode = 1
 $Session = New-Object WinSCP.Session
 
 try {
@@ -490,9 +490,6 @@ try {
     
 	# Connect
     $Session.Open($SessionOptions)
-	if (-not $Session.Opened -eq $true) {
-		throw [System.Management.Automation.RuntimeException] "Can't open connection to remote server.`r`n" + $Session.Output
-	}
     
 	$Command = $Command.ToUpper()
     
@@ -501,95 +498,103 @@ try {
 		Write-Debug "Using Advanced $command function"
 	} else {
 		$AdvancedFunction = $false
-		if (-not $Include) {
-			if ($Command -eq "UPLOAD" -and (Test-Path -Path $LocalPath -PathType Container)) {
-				Throw "-Include switch is missing from commandline arguments"
-			} else {
-				Write-Warning "-Include switch is missing from commandline arguments"
-			}
+	}
+	if (-not $Include -or ($null -eq $Include)) {
+		if ($Command -eq "UPLOAD" -and (Test-Path -Path $LocalPath -PathType Container)) {
+			Throw "-Include switch is missing from commandline arguments"
+		} else {
+			Write-Warning "[ WARNING ] -Include is missing from commandline arguments. Defaults to $Command all files and subdirectories of the local directory."
 		}
 	}
 	
 	if ($Command -eq "UPLOAD") {
+		$LocalPathValue = $LocalPath
+		# if ($AdvancedFunction) {
+			# if (Test-Path -Path $LocalPath -PathType Container) {
+				# if ($Include) {
+					# $LocalPathValue = $LocalPath + $Include
+				# }
+			# }
+			# $operationMessage = $Command + " '{0}' to '{1}'" -f $LocalPathValue, $RemotePath
+		# } else {	
+			$operationMessage = $Command + " '{0}' from '{1}' to '{2}'" -f $Include, $LocalPathValue, $RemotePath
+		# }
 		
-		if ($AdvancedFunction) {
-			if (Test-Path -Path $LocalPath -PathType Container) {
-				if ($Include) {
-					$LocalPath = $LocalPath + $Include
-				}
-			}
-		
-			# Upload files using advanced function
-			$operationMessage = $Command + " '{0}' to '{1}' (Advanced FileMask '{2}') Results:" -f $LocalPath, $RemotePath, $FileMask
-			Write-Host $operationMessage
-			$TransferResult = $Session.PutFiles($LocalPath, $RemotePath, $DeleteSourceFile, $TransferOptions)
-        
-		} else {
-			# Upload files using simpler function
-			$operationMessage = $Command + " '{0}' from {1} to '{2}' Results:" -f $Include, $LocalPath, $RemotePath
-			Write-Host $operationMessage
-			$TransferResult = $Session.PutFilestoDirectory($LocalPath, $RemotePath, $Include, $DeleteSourceFile)
+		if($FileMask) {
+			$operationMessage = $operationMessage + (", FileMask='{0}'" -f $FileMask)
 		}
+		if ($TransferMode) {
+			$operationMessage = $operationMessage + (", TransferMode='{0}'" -f $TransferMode)
+		}
+		$operationMessage  = $operationMessage  + " Results: `r`n"				
+		Write-Host -NoNewline $operationMessage
+		
+		$TransferResult = $Session.PutFilestoDirectory($LocalPathValue, $RemotePath, $Include, $DeleteSourceFile, $TransferOptions)
     }
 
     if ($Command -eq "DOWNLOAD") {
-		if ($AdvancedFunction) {
-			if ($RemotePath.EndsWith("/")) {
-				if ($Include) {
-					$RemotePathValue = $RemotePath + $Include
-				}
-			}
-			$operationMessage = $Command + " '{0}' to '{1}' (Advanced FileMask '{2}') Results:" -f $RemotePathValue, $LocalPath, $FileMask
-			Write-Host $operationMessage
-			# Download the file and throw on any error
-			$TransferResult = $Session.GetFiles($RemotePathValue, $LocalPath, $DeleteSourceFile, $TransferOptions)
-		} else {
-			$RemotePathValue = $RemotePath
-			$operationMessage = $Command + " '{0}' from '{1}' to '{2}' Results:" -f $Include, $RemotePathValue, $LocalPath
-			Write-Host $operationMessage
-			
-			$TransferResult = $Session.GetFilesToDirectory($RemotePathValue, $LocalPath, $Include, $DeleteSourceFile)
+		$RemotePathValue = $RemotePath
+		# if (($AdvancedFunction) -and $RemotePath.EndsWith("/")) {
+			# if ($Include) {
+				# $RemotePathValue = $RemotePath + $Include
+			# }
+			# $operationMessage = $Command + " '{0}' to '{1}'" -f $RemotePathValue, $LocalPath
+		# } else {
+			$operationMessage = $Command + " '{0}' from '{1}' to '{2}'" -f $Include, $RemotePathValue, $LocalPath
+		# }
+		
+		if($FileMask) {
+			$operationMessage = $operationMessage + (", FileMask='{0}'" -f $FileMask)
 		}
+		if ($TransferMode) {
+			$operationMessage = $operationMessage + (", TransferMode='{0}'" -f $TransferMode)
+		}
+		$operationMessage  = $operationMessage  + " Results: `r`n`r`n"
+		Write-Host -NoNewline $operationMessage
+		
+		$TransferResult = $Session.GetFilesToDirectory($RemotePathValue, $LocalPath, $Include, $DeleteSourceFile, $TransferOptions)
     }
 
-    if ($null -ne $Script:lastFileName) {
-        Write-Host "[  $($Script:Command) OK ] `t$($Script:lastFileName)"
-    }
-    # if ($VerbosePreference) {
-        #     Write-Host $operationMessage
-        # foreach ($transfer in $TransferResult.Transfers) {
-            #     Write-Host "[  $Command OK  ]   $($transfer.FileName)"
-            # }
-            foreach ($failure in $TransferResult.Failures) {
-                Write-Host "[ $Command FAIL ]  $($transfer.FileName)"
-            }
-            # }
-            if ($($TransferResult.IsSuccess)) {
-        Write-Host "$Command job ended successfully"
-    }
-    Write-Host "Files transferred successfully : $($TransferResult.Transfers.count)"
-    if ($($TransferResult.Failures.Count)) {
-        Write-Host "Files not transferred : $($TransferResult.Failures.Count)"
-    }
-    # Throw error if found
-    $TransferResult.Check()
+    # if ($null -ne $Script:lastFileName) {
+        # Write-Host -NoNewline "[  $($Script:Command) OK ] `t$($Script:lastFileName)`r`n"
+    # }
+	Write-Host -NoNewline "`r`n"
+	foreach ($Failure in $TransferResult.Failures) {
+		Write-Host -NoNewline "[ $Command FAIL ]  $($Failure.FileName) $($Failure.Message)`r`n"
+	}
+	if ($($TransferResult.IsSuccess)) {
+        Write-Host -NoNewline "[ JOB OK ] $Command job ended successfully`r`n"
+    } else {
+		Write-Host -NoNewline "[ JOB FAILED ] $Command job ended with failures`r`n"
+	}
+    
     
     if ($TransferResult.IsSuccess -eq $true ) {
         if ($TransferResult.Transfers.Count -gt 0) {
             $returnCode = 0
+			Write-Host -NoNewline "Files transferred successfully : $($TransferResult.Transfers.count)`r`n"
         } else {
             $returnCode = 20
+			Write-Host -NoNewline "No file transferred`r`n"
         }
     } else {
         $returnCode = 1
+		Write-Host -NoNewline "Files with failures : $($TransferResult.Failures.Count)`r`n"
     }
+
+    # Throw error if found
+    $TransferResult.Check()
 }
 catch [Exception] {
-	$PSBoundParameters | Out-String | Write-Host
-    Write-Error "Received Error '$_'"
-    Write-Host "<---- Session Output ---->"
+	$ReceivedError = $_
+	Write-Host -NoNewline "Error Received ""$ReceivedError""`r`n"
+    $ReceivedError | Format-List * -Force | Out-String | Write-Host
+	
+    # throw -NoNewline 
+    Write-Host -NoNewline "<---- Session Output ---->`r`n"
 	$Session.Output | Out-String | Write-Host
-    Write-Host "^---- Session Output ----^"
+    Write-Host -NoNewline "^---- Session Output ----^`r`n"
+	$PSBoundParameters | Out-String | Write-Host
     $returnCode = 1
 }    
 finally {
