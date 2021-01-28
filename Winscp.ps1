@@ -35,16 +35,19 @@ Login for authentication on remote server.
 Password as SecureString for authentication on remote server 
 
 .PARAMETER CSEntryName
-CredentialStore Entry Name to get the Login and Password securely
+CredentialStore Entry Name to get the Login and Password securely. Set it first for the current profile with `Set-CsEntry`
 
 .PARAMETER Include
-Filename or wildcard expression to select files. Wildcard characters here are * and ? only.
-To use a full syntax of file masks, use a -FileMask argument
+Filename or wildcard expression to select files. Wildcard characters supported here are * and ? only.
+*	Matches any number (including zero) of arbitrary characters.	*.doc; about*.html
+?	Matches exactly one arbitrary character.	photo????.jpg
+
+To use an advanced syntax of file masks, use a -FileMask argument. Caution, -FileMask applies on -Include filter. Both are needed.
 
 .PARAMETER Filemask
-FileMask is a touchy option allowing to select or exclude files or folder to download or upload.
-It needs $Include to include a larger set of files. FileMask will then include or exclude files from this set.
-
+FileMask is a powerfull but touchy option allowing to select or exclude files or folder to download or upload.
+It needs -Include value to specify a larger set of files. FileMask will then include or exclude files from this set.
+Excerpt from supported pattern or wildcards:
 *	Matches any number (including zero) of arbitrary characters.	*.doc; about*.html
 ?	Matches exactly one arbitrary character.	photo????.jpg
 [abc]	Matches one character from the set.	index_[abc].html
@@ -72,13 +75,16 @@ String containing the remote SSH Public Key fingerprint
 Path to SSH/SFTP Private Key file (can be passphrase protected)
 
 .PARAMETER SecurePrivateKeyCSEntryName
-CredentialStore Entry Name to get the passphrase allowing to read and use the SSH/SFTP Private Key for authentication
+CredentialStore Entry Name to get the passphrase allowing to read and use the SSH/SFTP Private Key for authentication. Set it first for the current profile with `Set-CsEntry`
 
 .PARAMETER FtpMode
 Enable Passive or Active FTP Transfer Mode
 
 .PARAMETER FtpSecure
 Enable Explicit or Implicit FTP Secure Mode
+
+.PARAMETER FilePermissions
+Permissions as octal value as string to applied to a remote file (used for uploads only and for SFTP and SCP protocols only). When not specified, keep default permissions. 
 
 .PARAMETER TransferMode
 Ascii or Binary, or Automatic (based on extension). Binary by default
@@ -96,14 +102,18 @@ Server certificate won't be checked for FTPS / S3 / WebDAV server.
 Add this switch if source file should be deleted after transfer successful 
 
 .EXAMPLE
-.\Winscp.ps1 -protocol sftp -Hostname remotehost.com -Port 2222 -User mylogin -pass <SecureString> -remotePath "/incoming" -localPath "C:\to_send" -filemask "*"
+.\Winscp.ps1 -protocol sftp -Hostname remotehost.com -Port 2222 -User mylogin -pass <SecureString> -remotePath "/incoming" -localPath "C:\to_send" -Include "*" -FilePermissions "644"
 
 .EXAMPLE
-.\Winscp.ps1 -WinscpPath "C:\Program Files (x86)\WinSCP\WinSCPnet.dll" -SessionURL "s3://s3.amazonaws.com/s3-my-bucketname-001/incoming" -localPath "C:\To_upload" -filemask "*.txt" -command "upload" -user "mylogin"
+.\Winscp.ps1 -WinscpPath "C:\Program Files (x86)\WinSCP\WinSCPnet.dll" -SessionURL "s3://s3.eu-west-1.amazonaws.com/s3-my-bucketname-001/incoming" -localPath "C:\To_upload" -Include "*.txt" -command "upload" -CsEntry "MyCSEntryName"
 
-.Example
-Using SessionURL with new filename on destination : 
-.\Winscp.ps1 -SessionURL "s3://s3.amazonaws.com/s3-my-bucketname-001/incoming/" -LocalPath "C:\To_upload\myfile.tst" -RemotePath "NewName.tst" -command "upload" -CsEntry "mylogin"
+.EXAMPLE
+.\Winscp.ps1 -SessionURL "s3://s3.eu-west-1.amazonaws.com/s3-my-bucketname-001/incoming/" -LocalPath "C:\To_upload\myfile.tst" -command "upload" -CsEntry "mylogin"
+Upload C:\To_upload\myfile.tst to S3 Bucket
+
+.EXAMPLE
+.\Winscp.ps1 -SessionURL "s3://s3.eu-west-1.amazonaws.com/s3-my-bucketname-001/outgoing/" -LocalPath "C:\To_upload" -Include "*" -FileMask "*.txt" -command "download" -CsEntry "mylogin"
+Download *.txt files from remote bucket, including matching files in subfolders
 
 .INPUTS
 None. You cannot pipe objects to Winscp1.ps1.
@@ -194,6 +204,10 @@ param (
     [Parameter()]
     [Bool]
     $PreserveTimestamp = $true,
+	
+	[Parameter()]
+	[Int32]
+	$FilePermissions = $null,
 
     [Switch]
     $IgnoreHostAuthenticityCheck,
@@ -361,7 +375,7 @@ switch ($PSBoundKeys) {
         catch [Exception] {
             Write-Host -NoNewline "Error while parsing provided sessionURL argument : '$sessionURL'`r`n"
             Write-Host $_.Exception.Message
-            Exit 3
+            Exit 4
         }
     }
     
@@ -415,6 +429,22 @@ switch ($PSBoundKeys) {
             $PSBoundParameters["TransferMode"] = [WinSCP.TransferMode]::Automatic
         }
     }
+	
+	'FilePermissions' {
+		if ($FilePermissions -gt 777) {
+			Write-Host -NoNewline "Incorrect Value for -FilePermissions : $FilePermissions`r`n"
+			Write-Host -NoNewline "Should be an octal value (Unix Format) between 000 and 777`r`nExiting"
+			Exit 4
+		}
+		try {
+			$PSBoundParameters["FilePermissions"] = [WinSCP.FilePermissions]::new([Convert]::ToInt32($FilePermissions, 8))
+		}
+		Catch {
+			Write-Host -NoNewline "Error while parsing octal value from -FilePermissions arg: '$FilePermissions'`r`n"
+            Write-Host $_.Exception.Message
+            Exit 3
+		}
+	}
 
 }
 
